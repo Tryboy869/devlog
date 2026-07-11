@@ -1,0 +1,27 @@
+{
+  "slug": "devlog",
+  "title": "DevLog : catalogue de projets développeur auto-géré",
+  "hook": "Catalogue de projets développeur qui se rédige et se met à jour tout seul : tu donnes un dépôt à lire, une IA transforme son README en entrée de blog, et tout est commité directement sur GitHub depuis ton navigateur.",
+  "description": "Catalogue auto-géré de projets développeur",
+  "body": "DevLog est un catalogue de projets développeur qui se rédige et se met à jour tout seul. Il suffit de donner un dépôt à lire, et une IA transforme son README en entrée de blog. Tout est commité directement sur GitHub depuis ton navigateur, sans besoin de serveur.\n\nLe processus est simple : fork le dépôt, importer ton fork sur Vercel, ajouter une variable d'environnement SITE_URL, déployer, et ouvrir le site déployé pour configurer l'administration. Une fois configuré, tu peux ajouter des projets à cataloguer et générer les entrées de blog automatiquement.\n\nDevLog est conçu pour être sécurisé et facile à utiliser. Il utilise des tokens GitHub et des clés API pour authentifier les requêtes, et il passe les contenus injectés dans le DOM par un échappement HTML systématique pour éviter les attaques de sécurité.",
+  "tags": [
+    "catalogue",
+    "projets",
+    "développeur",
+    "auto-géré",
+    "github",
+    "vercel"
+  ],
+  "stack": [
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "GitHub",
+    "Vercel",
+    "Groq",
+    "OpenRouter"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/devlog",
+  "createdAt": "2026-07-11T11:12:39.243Z",
+  "updatedAt": "2026-07-11T11:12:39.243Z"
+}
