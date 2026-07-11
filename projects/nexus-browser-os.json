@@ -1,0 +1,31 @@
+{
+  "slug": "nexus-browser-os",
+  "title": "NEXUS Browser OS",
+  "hook": "NEXUS Browser OS est un système d'exploitation complet fonctionnant à 100% dans votre navigateur. Aucune installation, aucun serveur, 100% client-side. Il offre une expérience utilisateur riche avec des applications intégrées telles que calculatrice, terminal, bloc-notes, gestionnaire de fichiers et éditeur de code.",
+  "description": "Système d'exploitation complet fonctionnant dans le navigateur",
+  "body": "NEXUS Browser OS est un système d'exploitation complet qui fonctionne entièrement dans votre navigateur. Il offre une expérience utilisateur riche avec des applications intégrées telles que calculatrice, terminal, bloc-notes, gestionnaire de fichiers et éditeur de code. Le système utilise un Service Worker pour fonctionnement hors ligne et fournit un stockage persistant via LDSS et localStorage. Il est également conçu pour être personnalisable avec des thèmes et des langues disponibles.\n\nLe système comprend également un terminal avancé avec plus de 50 commandes disponibles, un JavaScript REPL pour exécuter du code JavaScript en temps réel, et un système de gestion de tâches pour surveiller les processus en temps réel.\n\nNEXUS Browser OS est développé et maintenu par Nexus Studio, un studio de développement innovant spécialisé dans les technologies web avancées.",
+  "tags": [
+    "système d'exploitation",
+    "navigateur",
+    "client-side",
+    "service worker",
+    "stockage persistant",
+    "personnalisation",
+    "terminal avancé",
+    "javascript repl",
+    "gestion de tâches"
+  ],
+  "stack": [
+    "HTML5",
+    "CSS3",
+    "JavaScript",
+    "WebWorkers",
+    "LDSS",
+    "localStorage",
+    "Service Worker",
+    "PWA"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/nexus-browser-os",
+  "createdAt": "2026-07-11T11:16:52.204Z",
+  "updatedAt": "2026-07-11T11:16:52.204Z"
+}
