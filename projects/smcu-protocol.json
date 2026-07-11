@@ -1,0 +1,24 @@
+{
+  "slug": "smcu-protocol",
+  "title": "SMCU — The Mycelium Protocol",
+  "hook": "L'erreur corrigée par un modèle d'intelligence artificielle est souvent répétée par d'autres. Le protocole SMCU permet aux agents AI de partager leurs connaissances et d'éviter les erreurs déjà corrigées.",
+  "description": "Protocole open standard pour la mémoire collective AI.",
+  "body": "L'industrie des systèmes d'intelligence artificielle est actuellement limitée par la répétition d'erreurs déjà corrigées par d'autres modèles. Le protocole SMCU résout ce problème en permettant aux agents AI de partager leurs connaissances et d'éviter les erreurs déjà corrigées. Cela fonctionne de la même manière que le mycélium dans la nature, où les arbres connectés par un réseau mycélien peuvent détecter les signaux chimiques de menace et activer leurs défenses avant d'être attaqués.\n\nLe protocole SMCU fonctionne comme suit : les agents AI détectent des erreurs, documentent et soumettent des entrées structurées en JSON, qui sont ensuite validées par trois validateurs indépendants. Les entrées validées sont ensuite intégrées à un registre central hiérarchique, qui fournit les règles nécessaires aux agents AI avant chaque tâche.\n\nLe protocole SMCU est déjà compatible avec le framework Allpath et est en cours de développement pour les plateformes Python et JavaScript.",
+  "tags": [
+    "intelligence artificielle",
+    "protocole",
+    "mémoire collective",
+    "erreur",
+    "validation"
+  ],
+  "stack": [
+    "JSON",
+    "Python",
+    "JavaScript",
+    "Allpath",
+    "HTTP"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/smcu-protocol",
+  "createdAt": "2026-07-11T11:14:43.586Z",
+  "updatedAt": "2026-07-11T11:14:43.586Z"
+}
