@@ -1,0 +1,21 @@
+{
+  "slug": "openaibox",
+  "title": "Open AI Box",
+  "hook": "Open AI Box est un outil qui permet d'explorer l'intérieur de tout modèle de langage, quel que soit son architecture ou son fournisseur. Cela signifie que vous pouvez comprendre ce qui se passe à l'intérieur de tout modèle de langage, sans avoir besoin de le modifier.",
+  "description": "Outil d'exploration de modèle de langage",
+  "body": "Open AI Box est un package Python qui permet d'ouvrir la boîte noire de tout modèle de langage. Il utilise des hooks de PyTorch pour suivre une passe d'inference en direct et découvre automatiquement la structure de l'architecture, les points d'injection et les rôles des dimensions. Cela signifie que vous pouvez comprendre ce qui se passe à l'intérieur de tout modèle de langage, sans avoir besoin de le modifier.\n\nOpen AI Box est compatible avec tous les modèles de langage chargés à partir de HuggingFace `AutoModelForCausalLM`.\n\nIl peut également être utilisé pour expliquer les dimensions spécifiques d'un modèle de langage.",
+  "tags": [
+    "langage",
+    "modèle",
+    "exploration",
+    "intelligence artificielle"
+  ],
+  "stack": [
+    "Python",
+    "PyTorch",
+    "HuggingFace"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/openaibox",
+  "createdAt": "2026-07-11T10:59:01.669Z",
+  "updatedAt": "2026-07-11T10:59:01.669Z"
+}
