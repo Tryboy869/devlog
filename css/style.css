@@ -1,0 +1,389 @@
+/* ==========================================================================
+   DevLog — carnet de build
+   Palette volontairement éloignée des defaults IA (pas de crème+terracotta,
+   pas de noir quasi-pur + un seul accent néon). Encre bleu-nuit, laiton,
+   sauge et rose poussière comme indicateurs sémantiques (à la git diff).
+   Dualité typographique : le mono documente la machine (dates, tags, code),
+   le serif porte la prose rédigée — exactement le geste que fait l'outil.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --ink: #151A21;
+  --panel: #1E252E;
+  --panel-raised: #242C37;
+  --paper: #E8E6DE;
+  --muted: #8B93A1;
+  --brass: #D9A441;
+  --brass-dim: rgba(217, 164, 65, 0.25);
+  --sage: #5FA777;
+  --dusty-rose: #C1666B;
+  --line: rgba(232, 230, 222, 0.1);
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+a { color: var(--brass); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: #ecc678; }
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 3px;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand__dot { color: var(--brass); }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.4em 0.2em;
+}
+
+.link-btn:hover { color: var(--paper); }
+
+/* ---------- Bannières de statut ---------- */
+
+.banner {
+  margin: 1.25rem auto 0;
+  max-width: 760px;
+  padding: 0.85em 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  border-left: 3px solid var(--muted);
+}
+
+.banner--info { border-color: var(--muted); color: var(--paper); }
+.banner--success { border-color: var(--sage); color: var(--paper); }
+.banner--warn { border-color: var(--brass); color: var(--paper); background: rgba(217,164,65,0.08); }
+.banner--error { border-color: var(--dusty-rose); color: var(--paper); background: rgba(193,102,107,0.08); }
+
+/* ---------- Carnet de build (chronologie) ---------- */
+
+.log {
+  list-style: none;
+  margin: 2.5rem 0;
+  padding: 0;
+}
+
+.log-entry {
+  position: relative;
+  margin-left: 6px;
+  padding-left: 2rem;
+  padding-bottom: 2.75rem;
+  border-left: 2px solid var(--brass-dim);
+  animation: rise 0.4s ease-out both;
+}
+
+.log-entry:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.log-dot {
+  position: absolute;
+  left: -7px;
+  top: 0.3rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0 0 4px var(--ink);
+}
+
+.log-meta {
+  display: flex;
+  gap: 0.75em;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.4em;
+}
+
+.log-code { color: var(--brass); }
+
+.log-title { font-size: 1.35rem; margin-bottom: 0.35em; }
+.log-title a { color: var(--paper); }
+.log-title a:hover { color: var(--brass); }
+
+.log-hook {
+  color: var(--paper);
+  opacity: 0.85;
+  margin: 0 0 0.6em;
+}
+
+.log-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.log-tags li {
+  border: 1px solid var(--line);
+  padding: 0.25em 0.6em;
+  color: var(--muted);
+}
+
+.empty {
+  padding: 3rem 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+/* ---------- Administration ---------- */
+
+.admin {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.admin__title {
+  font-size: 1.1rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.field > span {
+  display: block;
+  margin-bottom: 0.4em;
+  color: var(--muted);
+}
+
+.field input,
+.field select {
+  width: 100%;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6em 0.75em;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.field__hint {
+  display: block;
+  margin-top: 0.35em;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+  font-style: italic;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.field-inline {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.field-inline select { flex: 1; }
+
+.form__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--brass);
+  color: var(--ink);
+  border: none;
+  border-radius: 6px;
+  padding: 0.65em 1.2em;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn:hover { background: #ecc678; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn--ghost {
+  background: none;
+  color: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.btn--ghost:hover { border-color: var(--brass); color: var(--brass); background: none; }
+
+.hint {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.preview {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--line);
+}
+
+.preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ---------- Page projet statique (générée par build.js) ---------- */
+
+.project-page {
+  padding: 3rem 0 5rem;
+}
+
+.project-back {
+  display: inline-block;
+  margin-bottom: 2rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.project-title {
+  font-size: 2.2rem;
+  margin-bottom: 0.3em;
+}
+
+.project-hook {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--brass);
+  border-left: 2px solid var(--brass);
+  padding-left: 1em;
+  margin: 1.5em 0 2em;
+}
+
+.project-body p {
+  margin: 0 0 1.3em;
+}
+
+.project-tags, .project-stack {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  padding: 0;
+  margin: 0.5em 0 1.5em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.project-tags li, .project-stack li {
+  border: 1px solid var(--line);
+  padding: 0.25em 0.6em;
+  color: var(--muted);
+}
+
+.project-meta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- Mouvement ---------- */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-entry { animation: none; }
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 640px) {
+  .field-row { grid-template-columns: 1fr; }
+  .site-header__inner { padding: 1rem; }
+  .project-title { font-size: 1.6rem; }
+}

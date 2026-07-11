@@ -1,0 +1,7 @@
+# DevLog
+
+> Catalogue de projets développeur, généré à partir de leurs README. Utile pour retrouver ce que fait chaque projet, sa stack et son dépôt source.
+
+## exemple
+
+- [Example Project — à remplacer](https://devlog-demo.vercel.app/p/example-project.html): Entrée d'exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.

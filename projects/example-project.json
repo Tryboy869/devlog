@@ -1,0 +1,12 @@
+{
+  "slug": "example-project",
+  "title": "Example Project — à remplacer",
+  "hook": "Entrée de démonstration : elle existe pour vérifier que le pipeline JSON → page statique → catalogue → sitemap fonctionne avant le tout premier vrai projet catalogué.",
+  "description": "Entrée d'exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.",
+  "body": "Ce fichier existe uniquement pour que build.js ait quelque chose à traiter au tout premier build, et pour que tu voies à quoi ressemble une page générée avant de connecter un vrai dépôt.\n\nUne fois un token GitHub et un fournisseur IA configurés depuis le panneau d'administration, génère une vraie entrée à partir d'un de tes dépôts, puis supprime purement et simplement ce fichier projects/example-project.json.",
+  "tags": ["exemple", "demo"],
+  "stack": ["JavaScript"],
+  "repoUrl": "https://github.com/octocat/Hello-World",
+  "createdAt": "2026-07-09T00:00:00.000Z",
+  "updatedAt": "2026-07-09T00:00:00.000Z"
+}

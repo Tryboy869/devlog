@@ -1,0 +1,13 @@
+[
+  {
+    "slug": "example-project",
+    "title": "Example Project — à remplacer",
+    "hook": "Entrée de démonstration : elle existe pour vérifier que le pipeline JSON → page statique → catalogue → sitemap fonctionne avant le tout premier vrai projet catalogué.",
+    "description": "Entrée d'exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.",
+    "tags": [
+      "exemple",
+      "demo"
+    ],
+    "updatedAt": "2026-07-09T00:00:00.000Z"
+  }
+]

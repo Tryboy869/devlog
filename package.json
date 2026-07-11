@@ -1,0 +1,13 @@
+{
+  "name": "devlog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README, sans backend.",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
