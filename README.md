@@ -1,0 +1,2 @@
+# devlog
+Initialisé automatiquement.
