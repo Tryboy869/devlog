@@ -1,0 +1,28 @@
+{
+  "slug": "hermes-web",
+  "title": "Hermes Web",
+  "hook": "Hermes Web est un agent IA multi-provider qui tourne entièrement dans le navigateur, sans besoin de backend. Il est déployable en un clic sur Vercel et propose une interface responsive desktop/mobile.",
+  "description": "Agent IA multi-provider pour chat dans une page web, avec historique de conversation persistant et outils intégrés.",
+  "body": "Hermes Web est un projet qui vise à offrir une expérience de chat dans une page web, en utilisant des providers d'intelligence artificielle tels que Anthropic, OpenAI et Groq. Il utilise une architecture d'orchestration pour appeler les outils et les abstractions multi-provider, ce qui permet de gérer les différentes APIs de manière efficace.\n\nLe projet propose également une interface responsive desktop/mobile, ainsi que des outils tels que la mémoire, la todo list et l'exécution de code JS en sandbox. Il est déployable en un clic sur Vercel et utilise les clés API stockées dans `localStorage` du navigateur.\n\nHermes Web est inspiré de l'architecture d'Hermes Agent, mais il n'est pas un portage complet. Il a été conçu pour être léger et efficace, avec une structure détaillée dans le fichier SCOPE.md.",
+  "tags": [
+    "intelligence artificielle",
+    "multi-provider",
+    "chat",
+    "page web",
+    "interface responsive"
+  ],
+  "stack": [
+    "TypeScript",
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "Vercel",
+    "IndexedDB",
+    "QuickJS",
+    "Tavily",
+    "Eruda"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/hermes-web",
+  "createdAt": "2026-07-11T20:40:54.615Z",
+  "updatedAt": "2026-07-11T20:40:54.615Z"
+}
