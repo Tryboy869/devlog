@@ -12,6 +12,7 @@ const ROOT = process.cwd();
 const PROJECTS_DIR = path.join(ROOT, 'projects');
 const PAGES_DIR = path.join(ROOT, 'p');
 const SITE_URL = (process.env.SITE_URL || 'https://example.vercel.app').replace(/\/$/, '');
+const SITE_REPO = process.env.SITE_REPO || ''; // ex. "Tryboy869/devlog" — affiché dans la section Contribuer
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({
@@ -106,14 +107,17 @@ function renderProjectPage(project) {
 }
 
 function buildCatalogJson(projects) {
-  return projects.map((p) => ({
-    slug: p.slug,
-    title: p.title,
-    hook: p.hook,
-    description: p.description,
-    tags: p.tags || [],
-    updatedAt: p.updatedAt,
-  }));
+  return {
+    siteRepo: SITE_REPO ? `https://github.com/${SITE_REPO.replace(/^https?:\/\/github\.com\//i, '')}` : null,
+    projects: projects.map((p) => ({
+      slug: p.slug,
+      title: p.title,
+      hook: p.hook,
+      description: p.description,
+      tags: p.tags || [],
+      updatedAt: p.updatedAt,
+    })),
+  };
 }
 
 function buildSitemap(projects) {

@@ -1,0 +1,43 @@
+name: Auto-catalogue
+
+# Fréquence : modifie juste la ligne cron ci-dessous pour changer le rythme
+# (ex. "0 */6 * * *" = toutes les 6h, "0 6 * * 1" = chaque lundi à 6h UTC).
+"on":
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {} # permet aussi un déclenchement manuel depuis l'onglet Actions
+
+permissions:
+  contents: write
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Génère les entrées nouvelles ou mises à jour
+        env:
+          # Le token par défaut d'Actions suffit pour lire des dépôts publics et écrire
+          # sur celui-ci. Pour cataloguer des dépôts privés, ajoute un secret CATALOG_PAT
+          # (token perso avec accès en lecture à ces dépôts) : il prendra le dessus.
+          GITHUB_TOKEN: ${{ secrets.CATALOG_PAT || secrets.GITHUB_TOKEN }}
+          CATALOG_OWNER: ${{ github.repository_owner }}
+          CATALOG_REPO: ${{ github.event.repository.name }}
+          AI_PROVIDER: ${{ vars.AI_PROVIDER }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          MAX_PER_RUN: ${{ vars.MAX_PER_RUN || '5' }}
+        run: node .github/scripts/auto-catalog.mjs
+
+      - name: Commit et push si changement
+        run: |
+          git config user.name "devlog-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add projects/
+          git diff --cached --quiet && echo "Rien de nouveau." || git commit -m "chore(auto): mise à jour automatique du catalogue"
+          git diff --cached --quiet || git push

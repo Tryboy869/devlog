@@ -95,6 +95,90 @@ h1, h2, h3 {
 
 .link-btn:hover { color: var(--paper); }
 
+.hamburger {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  width: 38px;
+  height: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--paper);
+  border-radius: 1px;
+}
+
+.hamburger:hover { border-color: var(--brass); }
+.hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+
+.nav-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.nav-panel a {
+  padding: 0.9em 1.5rem;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.nav-panel a:last-child { border-bottom: none; }
+.nav-panel a:hover { color: var(--brass); background: var(--panel-raised); }
+
+/* ---------- Accueil (hero) ---------- */
+
+.hero {
+  padding: 3.5rem 0 3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero__kicker {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass);
+  margin: 0 0 0.6em;
+}
+
+.hero__title {
+  font-size: 2rem;
+  max-width: 20ch;
+  margin-bottom: 0.5em;
+}
+
+.hero__lead {
+  max-width: 52ch;
+  color: var(--paper);
+  opacity: 0.8;
+  margin: 0 0 1.5em;
+}
+
+/* ---------- Contribuer ---------- */
+
+.contribute {
+  padding: 3rem 0;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.contribute p { color: var(--paper); opacity: 0.85; max-width: 55ch; }
+
 /* ---------- Bannières de statut ---------- */
 
 .banner {
@@ -247,6 +331,11 @@ h1, h2, h3 {
   font-size: 0.75rem;
   font-family: var(--font-body);
   font-style: italic;
+}
+
+.field__hint--ok {
+  color: var(--sage);
+  font-style: normal;
 }
 
 .field-row {

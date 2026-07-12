@@ -1,5 +1,6 @@
 // app.js — orchestre tout ce qui se passe dans le navigateur : configuration, lecture/écriture
-// GitHub, appel au fournisseur IA, rendu du catalogue public et du panneau d'administration.
+// GitHub, appel au fournisseur IA, rendu du site public (accueil, catalogue, contribution)
+// et du panneau d'administration.
 // Le pré-rendu SEO (pages /p/*.html, sitemap.xml, robots.txt, llms.txt) est un moment
 // d'exécution séparé : il tourne côté build (voir build.js), jamais ici.
 
@@ -26,6 +27,17 @@ function saveConfig(cfg) {
 
 function isConfigComplete(cfg) {
   return Boolean(cfg.owner && cfg.repo && cfg.provider && cfg.apiKey && cfg.model);
+}
+
+function missingConfigFields(cfg, hasToken) {
+  const missing = [];
+  if (!hasToken) missing.push('token GitHub');
+  if (!cfg.owner) missing.push('propriétaire du dépôt');
+  if (!cfg.repo) missing.push('nom du dépôt');
+  if (!cfg.provider) missing.push('fournisseur IA');
+  if (!cfg.apiKey) missing.push('clé API');
+  if (!cfg.model) missing.push('modèle (à récupérer puis choisir)');
+  return missing;
 }
 
 // ---------- Petits utilitaires ----------
@@ -64,12 +76,32 @@ function renderBodyHtml(text) {
   return window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
 }
 
+// Accepte "proprietaire/depot" ET une URL GitHub complète (avec ou sans protocole,
+// www., .git, ou chemin supplémentaire type /tree/main) — corrige le format rigide
+// d'origine qui n'acceptait que "proprietaire/depot".
+function parseRepoInput(input) {
+  let s = String(input || '').trim();
+  if (!s) return null;
+  s = s.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  if (/^github\.com\//i.test(s)) {
+    s = s.slice('github.com/'.length);
+  }
+  const parts = s.split('/').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const owner = parts[0];
+  const repo = parts[1].replace(/\.git$/i, '');
+  if (!owner || !repo) return null;
+  return { owner, repo };
+}
+
 // ---------- État ----------
 
 const state = {
   config: loadConfig(),
   token: getToken(),
   catalog: [],
+  siteRepo: null, // URL du dépôt du site lui-même, pour la section "Contribuer" — vient de catalog.json
+  navOpen: false,
   showAdmin: false,
   availableModels: [],
   message: null, // { text, kind: 'info' | 'success' | 'warn' | 'error' }
@@ -85,6 +117,8 @@ function setMessage(text, kind = 'info') {
 }
 
 // ---------- Cooldown (garde-fou de fréquence, 100% côté navigateur) ----------
+// Note : pour une génération qui tourne toute seule sans navigateur ouvert, voir
+// .github/workflows/auto-catalog.yml — ce garde-fou-ci ne concerne que ce bouton manuel.
 
 async function checkCooldown() {
   const { owner, repo, cooldownHours } = state.config;
@@ -119,7 +153,14 @@ async function updateStateAfterRun() {
 async function init() {
   try {
     const res = await fetch('/catalog.json', { cache: 'no-store' });
-    state.catalog = res.ok ? await res.json() : [];
+    const data = res.ok ? await res.json() : null;
+    if (Array.isArray(data)) {
+      // ancien format (juste un tableau) — compatibilité si un vieux build traîne encore
+      state.catalog = data;
+    } else if (data) {
+      state.catalog = Array.isArray(data.projects) ? data.projects : [];
+      state.siteRepo = data.siteRepo || null;
+    }
   } catch {
     state.catalog = [];
   }
@@ -132,9 +173,13 @@ function render() {
   root.innerHTML = `
     ${renderHeader()}
     ${state.message ? renderMessage() : ''}
-    <main class="wrap">
-      ${renderCatalog()}
-      ${state.showAdmin ? renderAdmin() : ''}
+    <main>
+      ${renderHero()}
+      <div class="wrap">
+        ${renderCatalog()}
+      </div>
+      ${renderContribute()}
+      ${state.showAdmin ? `<div class="wrap">${renderAdmin()}</div>` : ''}
     </main>
   `;
 }
@@ -143,12 +188,53 @@ function renderHeader() {
   return `
     <header class="site-header">
       <div class="wrap site-header__inner">
-        <span class="brand">devlog<span class="brand__dot">.</span></span>
-        <button type="button" class="link-btn" data-action="toggle-admin">
-          ${state.showAdmin ? 'Fermer l\u2019administration' : 'Administration'}
+        <a class="brand" href="#accueil">devlog<span class="brand__dot">.</span></a>
+        <button type="button" class="hamburger" data-action="toggle-nav" aria-label="Menu" aria-expanded="${state.navOpen ? 'true' : 'false'}">
+          <span></span><span></span><span></span>
         </button>
       </div>
+      ${state.navOpen ? renderNav() : ''}
     </header>
+  `;
+}
+
+function renderNav() {
+  return `
+    <nav class="nav-panel" aria-label="Navigation principale">
+      <a href="#accueil" data-action="close-nav">Accueil</a>
+      <a href="#projets" data-action="close-nav">Projets</a>
+      <a href="#contribuer" data-action="close-nav">Contribuer</a>
+      <a href="#administration" data-action="open-admin-nav">Administration</a>
+    </nav>
+  `;
+}
+
+function renderHero() {
+  return `
+    <section id="accueil" class="hero">
+      <div class="wrap">
+        <p class="hero__kicker">Carnet de build</p>
+        <h1 class="hero__title">Un catalogue de projets qui s\u2019écrit tout seul.</h1>
+        <p class="hero__lead">Chaque entrée ci-dessous est générée à partir du README du dépôt correspondant. Une fois configuré, plus besoin d\u2019y retoucher à la main.</p>
+        <a href="#projets" class="btn btn--ghost">Voir les projets \u2193</a>
+      </div>
+    </section>
+  `;
+}
+
+function renderContribute() {
+  const repoUrl = state.siteRepo
+    || (state.config.owner && state.config.repo ? `https://github.com/${state.config.owner}/${state.config.repo}` : null);
+  return `
+    <section id="contribuer" class="contribute">
+      <div class="wrap">
+        <h2 class="admin__title">Contribuer</h2>
+        <p>Ce site est généré par un outil open source : une idée, un bug, une amélioration à proposer ?</p>
+        ${repoUrl
+          ? `<a class="btn" href="${escapeHtml(repoUrl)}" target="_blank" rel="noopener">Voir le dépôt sur GitHub \u2197</a>`
+          : '<p class="hint">Lien du dépôt non configuré (variable SITE_REPO absente du build).</p>'}
+      </div>
+    </section>
   `;
 }
 
@@ -164,15 +250,15 @@ function renderMessage() {
 function renderCatalog() {
   if (!state.catalog.length) {
     return `
-      <section class="empty">
+      <section id="projets" class="empty">
         <p>Aucun projet catalogué pour l\u2019instant.</p>
-        ${!state.showAdmin ? '<button type="button" class="link-btn" data-action="toggle-admin">Ouvrir l\u2019administration pour en ajouter un</button>' : ''}
+        ${!state.showAdmin ? '<a class="link-btn" href="#administration" data-action="open-admin-nav">Ouvrir l\u2019administration pour en ajouter un</a>' : ''}
       </section>
     `;
   }
   const sorted = [...state.catalog].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   return `
-    <section aria-label="Catalogue de projets">
+    <section id="projets" aria-label="Catalogue de projets">
       <ol class="log">
         ${sorted.map((p) => `
           <li class="log-entry">
@@ -194,11 +280,14 @@ function renderCatalog() {
 function renderAdmin() {
   const cfg = state.config;
   const complete = isConfigComplete(cfg) && state.token;
+  const missing = missingConfigFields(cfg, Boolean(state.token));
   return `
-    <section class="admin" aria-label="Administration">
+    <section id="administration" class="admin" aria-label="Administration">
       <h2 class="admin__title">Configuration</h2>
       ${renderConfigForm()}
-      ${complete ? renderGenerateForm() : '<p class="hint">Renseigne un token, un dépôt, un fournisseur et une clé API pour débloquer l\u2019ajout de projets.</p>'}
+      ${complete
+        ? renderGenerateForm()
+        : `<p class="hint">Il manque encore : ${missing.map(escapeHtml).join(', ')}.</p>`}
       ${state.lastGenerated ? renderPreview(state.lastGenerated) : ''}
     </section>
   `;
@@ -234,7 +323,9 @@ function renderConfigForm() {
       <label class="field">
         <span>Token GitHub</span>
         <input type="password" name="token" placeholder="ghp_... ou github_pat_..." value="${state.token ? '\u2022'.repeat(12) : ''}" autocomplete="off">
-        <small class="field__hint">Classique ou fine-grained, au choix \u2014 stocké uniquement dans ce navigateur.</small>
+        ${state.token
+          ? '<small class="field__hint field__hint--ok">\u2713 Token enregistré dans ce navigateur. Laisse ce champ tel quel pour le garder, ou colle-en un nouveau pour le remplacer.</small>'
+          : '<small class="field__hint">Classique ou fine-grained, au choix \u2014 stocké uniquement dans ce navigateur.</small>'}
       </label>
       ${state.scopeWarning ? `<p class="banner banner--warn">${escapeHtml(state.scopeWarning)}</p>` : ''}
 
@@ -273,10 +364,12 @@ function renderConfigForm() {
             </select>
             <button type="button" class="btn btn--ghost" data-action="fetch-models">Récupérer les modèles</button>
           </div>
+          ${!state.availableModels.length ? '<small class="field__hint">Il faut cliquer ici et choisir un modèle : c\u2019est un champ à part entière, pas juste une info.</small>' : ''}
         </label>
         <label class="field">
-          <span>Délai minimum entre deux runs (heures)</span>
+          <span>Délai minimum entre deux runs manuels (heures)</span>
           <input type="number" name="cooldownHours" min="0" step="1" value="${cfg.cooldownHours ?? 0}">
+          <small class="field__hint">Pour une génération qui tourne sans que tu ouvres le site, voir le workflow GitHub Actions automatique (section Contribuer → dépôt → .github/workflows).</small>
         </label>
       </div>
 
@@ -293,8 +386,8 @@ function renderGenerateForm() {
     <form data-form="generate" class="form">
       <label class="field">
         <span>Dépôt à cataloguer</span>
-        <input type="text" name="target" placeholder="proprietaire/depot" value="${escapeHtml(state.draftTarget)}" required>
-        <small class="field__hint">Doit contenir un README.md lisible avec ce token.</small>
+        <input type="text" name="target" placeholder="proprietaire/depot ou https://github.com/proprietaire/depot" value="${escapeHtml(state.draftTarget)}" required>
+        <small class="field__hint">Les deux formats marchent : "proprietaire/depot" ou un lien GitHub complet. Doit contenir un README.md lisible avec ce token.</small>
       </label>
       <div class="form__actions">
         <button type="submit" class="btn" ${state.busy ? 'disabled' : ''}>${state.busy ? 'Génération en cours…' : 'Générer l\u2019entrée de catalogue'}</button>
@@ -316,7 +409,7 @@ async function handleFetchModels() {
   setMessage('Récupération des modèles…');
   try {
     state.availableModels = await fetchModels(provider, apiKey);
-    setMessage(`${state.availableModels.length} modèle(s) récupéré(s).`, 'success');
+    setMessage(`${state.availableModels.length} modèle(s) récupéré(s) — choisis-en un dans la liste juste au-dessus.`, 'success');
   } catch (e) {
     setMessage(e.message, 'error');
   }
@@ -330,7 +423,6 @@ async function handleSaveConfigSubmit(e) {
   if (tokenInput && !tokenInput.startsWith('\u2022')) {
     saveToken(tokenInput);
     state.token = tokenInput;
-    setMessage('Vérification du token…');
     const scope = await detectTokenScope(tokenInput);
     state.scopeWarning = scope.known && scope.broad
       ? 'Ce token a accès à tous tes dépôts (scope "repo" classique). Un token fine-grained limité à ce seul dépôt réduit les dégâts en cas de fuite \u2014 mais le choix reste le tien.'
@@ -346,7 +438,14 @@ async function handleSaveConfigSubmit(e) {
     cooldownHours: Number(form.cooldownHours.value) || 0,
   };
   saveConfig(state.config);
-  setMessage('Configuration enregistrée.', 'success');
+
+  const stillMissing = missingConfigFields(state.config, Boolean(state.token));
+  setMessage(
+    stillMissing.length
+      ? `Configuration enregistrée, mais incomplète — il manque : ${stillMissing.join(', ')}.`
+      : 'Configuration enregistrée et complète : le formulaire de génération est maintenant disponible plus bas.',
+    stillMissing.length ? 'warn' : 'success'
+  );
 }
 
 async function handleClearToken() {
@@ -361,12 +460,13 @@ async function handleGenerateSubmit(e) {
   if (state.busy) return;
   const target = e.target.target.value.trim();
   state.draftTarget = '';
-  const [targetOwner, targetRepo] = target.split('/').map((s) => s && s.trim());
+  const parsed = parseRepoInput(target);
 
-  if (!targetOwner || !targetRepo) {
-    setMessage('Format attendu : proprietaire/depot', 'error');
+  if (!parsed) {
+    setMessage('Format attendu : proprietaire/depot, ou un lien GitHub complet.', 'error');
     return;
   }
+  const { owner: targetOwner, repo: targetRepo } = parsed;
 
   state.busy = true;
   render();
@@ -394,7 +494,7 @@ async function handleGenerateSubmit(e) {
     const raw = await generateContent(
       state.config.provider, state.config.apiKey, state.config.model, systemPrompt, userPrompt
     );
-    const parsed = parseJsonResponse(raw);
+    const parsedContent = parseJsonResponse(raw);
 
     const slug = slugify(targetRepo);
     const now = new Date().toISOString();
@@ -406,12 +506,12 @@ async function handleGenerateSubmit(e) {
 
     const project = {
       slug,
-      title: parsed.title || targetRepo,
-      hook: parsed.hook || '',
-      description: parsed.description || '',
-      body: parsed.body || '',
-      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-      stack: Array.isArray(parsed.stack) ? parsed.stack : [],
+      title: parsedContent.title || targetRepo,
+      hook: parsedContent.hook || '',
+      description: parsedContent.description || '',
+      body: parsedContent.body || '',
+      tags: Array.isArray(parsedContent.tags) ? parsedContent.tags : [],
+      stack: Array.isArray(parsedContent.stack) ? parsedContent.stack : [],
       repoUrl: `https://github.com/${targetOwner}/${targetRepo}`,
       createdAt,
       updatedAt: now,
@@ -466,6 +566,16 @@ root.addEventListener('click', (e) => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'toggle-admin') {
     state.showAdmin = !state.showAdmin;
+    render();
+  } else if (action === 'toggle-nav') {
+    state.navOpen = !state.navOpen;
+    render();
+  } else if (action === 'close-nav') {
+    state.navOpen = false;
+    render();
+  } else if (action === 'open-admin-nav') {
+    state.navOpen = false;
+    state.showAdmin = true;
     render();
   } else if (action === 'fetch-models') {
     handleFetchModels();
