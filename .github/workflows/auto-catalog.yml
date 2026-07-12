@@ -4,7 +4,7 @@ name: Auto-catalogue
 # (ex. "0 */6 * * *" = toutes les 6h, "0 6 * * 1" = chaque lundi à 6h UTC).
 "on":
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 * * * *"
   workflow_dispatch: {} # permet aussi un déclenchement manuel depuis l'onglet Actions
 
 permissions:
