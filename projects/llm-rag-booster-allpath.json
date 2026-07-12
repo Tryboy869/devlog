@@ -1,0 +1,24 @@
+{
+  "slug": "llm-rag-booster-allpath",
+  "title": "RAGbooster : un RAG honnête sans base de données vectorielle",
+  "hook": "RAGbooster est un petit RAG qui utilise BM25 et un client LLM universel (OpenAI, Groq, Anthropic, Ollama) pour traiter des documents trop volumineux. Pas de base de données vectorielle, pas de coûts de API d'embedding, pas de format de fichier propriétaire.",
+  "description": "Un RAG léger et honnête pour traiter des documents volumineux avec BM25 et un client LLM universel.",
+  "body": "RAGbooster résout le problème de la taille des documents pour les LLM en les divisant en chunks overlappants, en les classant avec BM25 et en envoyant uniquement les chunks les plus pertinents au LLM. C'est tout. Pas de modification ou d'extension du contexte LLM. C'est un système de sélection de chunks pertinents pour faire entrer la plus grande partie du corpus dans le contexte LLM existant.\n\nLe code est simple, la mémoire est faible, et la précision est élevée. C'est un bon choix pour les applications où la précision est cruciale et la complexité est à éviter.\n\nLa stack technique est simple : Python, BM25, FastAPI/uvicorn pour l'API HTTP.",
+  "tags": [
+    "RAG",
+    "BM25",
+    "LLM",
+    "Python",
+    "FastAPI",
+    "uvicorn"
+  ],
+  "stack": [
+    "Python",
+    "BM25",
+    "FastAPI",
+    "uvicorn"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/llm-rag-booster-allpath",
+  "createdAt": "2026-07-12T13:55:09.513Z",
+  "updatedAt": "2026-07-12T13:55:09.513Z"
+}
