@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://devlog-demo.vercel.app/sitemap.xml
+Sitemap: https://devlog-tryboy869.vercel.app/sitemap.xml

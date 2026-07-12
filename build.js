@@ -11,8 +11,24 @@ import path from 'node:path';
 const ROOT = process.cwd();
 const PROJECTS_DIR = path.join(ROOT, 'projects');
 const PAGES_DIR = path.join(ROOT, 'p');
-const SITE_URL = (process.env.SITE_URL || 'https://example.vercel.app').replace(/\/$/, '');
-const SITE_REPO = process.env.SITE_REPO || ''; // ex. "Tryboy869/devlog" — affiché dans la section Contribuer
+// SITE_URL et SITE_REPO se déduisent automatiquement des variables système que Vercel
+// fournit déjà tout seul (aucune saisie manuelle requise) : il suffit d'avoir coché
+// "Enable access to System Environment Variables" une fois dans Settings → Environment
+// Variables sur Vercel. On garde SITE_URL/SITE_REPO en override manuel si jamais besoin
+// (domaine personnalisé non reflété par Vercel, dépôt renommé, etc.).
+const AUTO_SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : null;
+const AUTO_SITE_REPO = (process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG)
+  ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`
+  : null;
+
+const SITE_URL = (process.env.SITE_URL || AUTO_SITE_URL || 'https://example.vercel.app').replace(/\/$/, '');
+const SITE_REPO = process.env.SITE_REPO || AUTO_SITE_REPO || ''; // "Tryboy869/devlog" — section Contribuer
+
+if (!process.env.SITE_URL && !AUTO_SITE_URL) {
+  console.warn('[build] SITE_URL non détecté automatiquement — active "System Environment Variables" dans les réglages Vercel, ou force SITE_URL manuellement.');
+}
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({

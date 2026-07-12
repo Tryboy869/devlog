@@ -392,6 +392,12 @@ h1, h2, h3 {
   border-top: 1px dashed var(--line);
 }
 
+.automation {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--line);
+}
+
 .preview__head {
   display: flex;
   align-items: center;

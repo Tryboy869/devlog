@@ -4,12 +4,18 @@
 // Le pré-rendu SEO (pages /p/*.html, sitemap.xml, robots.txt, llms.txt) est un moment
 // d'exécution séparé : il tourne côté build (voir build.js), jamais ici.
 
-import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope } from './github.js';
+import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope, setActionsSecret, setActionsVariable } from './github.js';
 import { PROVIDERS, fetchModels, generateContent, parseJsonResponse } from './providers.js';
 import { buildBlogWritingPrompt } from './skills.js';
 
 const CONFIG_KEY = 'devlog_config';
 const root = document.getElementById('app');
+
+const CRON_PRESETS = {
+  hourly: { label: 'Toutes les heures', cron: '0 * * * *' },
+  daily: { label: 'Tous les jours à 6h', cron: '0 6 * * *' },
+  weekly: { label: 'Chaque lundi à 6h', cron: '0 6 * * 1' },
+};
 
 // ---------- Config locale (tout reste dans ce navigateur) ----------
 
@@ -109,6 +115,11 @@ const state = {
   busy: false,
   draftTarget: '', // valeur non soumise du champ "dépôt à cataloguer", préservée entre deux rendus
   lastGenerated: null, // aperçu du dernier projet écrit, affiché tant que l'admin ne l'a pas fermé
+  automationBusy: false,
+  automationFrequency: 'daily',
+  automationCustomCron: '',
+  maxPerRun: 5,
+  catalogPat: '',
 };
 
 function setMessage(text, kind = 'info') {
@@ -134,6 +145,19 @@ async function checkCooldown() {
     return { ok: false, waitHours: Math.max(1, Math.ceil(hours - elapsedHours)) };
   }
   return { ok: true };
+}
+
+async function updateWorkflowSchedule(owner, repo, cronExpression, token) {
+  const path = '.github/workflows/auto-catalog.yml';
+  const file = await getFile(owner, repo, path, token);
+  if (!file || Array.isArray(file)) {
+    throw new Error(`${path} introuvable sur ce dépôt \u2014 l\u2019automatisation n\u2019a pas pu être configurée.`);
+  }
+  const updated = file.content.replace(/(-\s*cron:\s*)"[^"]*"/, `$1"${cronExpression}"`);
+  if (updated === file.content) {
+    throw new Error('Ligne "cron:" introuvable dans le workflow \u2014 a-t-il été modifié manuellement ?');
+  }
+  await putFile(owner, repo, path, updated, `chore: fréquence auto-catalogue \u2192 ${cronExpression}`, token);
 }
 
 async function updateStateAfterRun() {
@@ -288,7 +312,49 @@ function renderAdmin() {
       ${complete
         ? renderGenerateForm()
         : `<p class="hint">Il manque encore : ${missing.map(escapeHtml).join(', ')}.</p>`}
+      ${complete ? renderAutomation() : ''}
       ${state.lastGenerated ? renderPreview(state.lastGenerated) : ''}
+    </section>
+  `;
+}
+
+function renderAutomation() {
+  const frequencyOptions = Object.entries(CRON_PRESETS)
+    .map(([id, p]) => `<option value="${id}" ${state.automationFrequency === id ? 'selected' : ''}>${p.label}</option>`)
+    .join('');
+  return `
+    <section class="automation" aria-label="Automatisation">
+      <h3 class="admin__title">Automatisation (sans navigateur)</h3>
+      <p class="hint">Réutilise le fournisseur, la clé et le modèle déjà renseignés ci-dessus. Pousse tout ça comme secret/variables GitHub Actions, et règle la fréquence du workflow \u2014 rien à configurer côté GitHub.</p>
+      <form data-form="automation" class="form">
+        <div class="field-row">
+          <label class="field">
+            <span>Fréquence</span>
+            <select name="frequency">
+              ${frequencyOptions}
+              <option value="custom" ${state.automationFrequency === 'custom' ? 'selected' : ''}>Personnalisée (cron)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Dépôts traités par passage</span>
+            <input type="number" name="maxPerRun" min="1" step="1" value="${state.maxPerRun}">
+          </label>
+        </div>
+        ${state.automationFrequency === 'custom' ? `
+        <label class="field">
+          <span>Expression cron</span>
+          <input type="text" name="customCron" placeholder="0 6 * * *" value="${escapeHtml(state.automationCustomCron)}">
+          <small class="field__hint">Format cron standard, en UTC.</small>
+        </label>` : ''}
+        <label class="field">
+          <span>Token pour dépôts privés (optionnel)</span>
+          <input type="password" name="catalogPat" placeholder="laisser vide pour dépôts publics uniquement" value="${escapeHtml(state.catalogPat)}" autocomplete="off">
+          <small class="field__hint">Poussé comme secret CATALOG_PAT. Sans ça, seuls tes dépôts publics sont catalogués automatiquement.</small>
+        </label>
+        <div class="form__actions">
+          <button type="submit" class="btn" ${state.automationBusy ? 'disabled' : ''}>${state.automationBusy ? 'Configuration en cours…' : 'Activer l\u2019automatisation'}</button>
+        </div>
+      </form>
     </section>
   `;
 }
@@ -455,6 +521,58 @@ async function handleClearToken() {
   render();
 }
 
+async function handleActivateAutomation(e) {
+  e.preventDefault();
+  if (state.automationBusy) return;
+  const form = e.target;
+  const frequency = form.frequency.value;
+  const cronExpression = frequency === 'custom'
+    ? form.customCron.value.trim()
+    : CRON_PRESETS[frequency].cron;
+
+  if (!cronExpression) {
+    setMessage('Renseigne une expression cron valide.', 'error');
+    return;
+  }
+
+  state.automationFrequency = frequency;
+  if (frequency === 'custom') state.automationCustomCron = cronExpression;
+  state.maxPerRun = Number(form.maxPerRun.value) || 5;
+  state.catalogPat = form.catalogPat.value.trim();
+  state.automationBusy = true;
+  render();
+
+  const { owner, repo, provider, apiKey, model } = state.config;
+
+  try {
+    setMessage('Envoi de la clé IA comme secret GitHub Actions…');
+    await setActionsSecret(owner, repo, 'AI_API_KEY', apiKey, state.token);
+
+    setMessage('Configuration des variables (fournisseur, modèle, limite)…');
+    await setActionsVariable(owner, repo, 'AI_PROVIDER', provider, state.token);
+    await setActionsVariable(owner, repo, 'AI_MODEL', model, state.token);
+    await setActionsVariable(owner, repo, 'MAX_PER_RUN', String(state.maxPerRun), state.token);
+
+    if (state.catalogPat) {
+      setMessage('Envoi du token pour dépôts privés…');
+      await setActionsSecret(owner, repo, 'CATALOG_PAT', state.catalogPat, state.token);
+    }
+
+    setMessage('Réglage de la fréquence du workflow…');
+    await updateWorkflowSchedule(owner, repo, cronExpression, state.token);
+
+    setMessage(
+      `Automatisation activée (${cronExpression}, UTC). Premier passage au prochain déclenchement planifié \u2014 ou lance-le tout de suite depuis l\u2019onglet Actions \u2192 Auto-catalogue \u2192 Run workflow.`,
+      'success'
+    );
+  } catch (err) {
+    setMessage(err.message || String(err), 'error');
+  } finally {
+    state.automationBusy = false;
+    render();
+  }
+}
+
 async function handleGenerateSubmit(e) {
   e.preventDefault();
   if (state.busy) return;
@@ -559,6 +677,16 @@ root.addEventListener('input', (e) => {
   const generateForm = e.target.closest('[data-form="generate"]');
   if (generateForm) {
     state.draftTarget = generateForm.target.value;
+    return;
+  }
+  const automationForm = e.target.closest('[data-form="automation"]');
+  if (automationForm) {
+    const changedFrequency = e.target.name === 'frequency';
+    state.automationFrequency = automationForm.frequency.value;
+    state.maxPerRun = automationForm.maxPerRun.value;
+    if (automationForm.customCron) state.automationCustomCron = automationForm.customCron.value;
+    state.catalogPat = automationForm.catalogPat.value;
+    if (changedFrequency) render(); // pour afficher/masquer le champ cron personnalisé
   }
 });
 
@@ -591,6 +719,7 @@ root.addEventListener('submit', (e) => {
   const formType = e.target.dataset && e.target.dataset.form;
   if (formType === 'config') handleSaveConfigSubmit(e);
   if (formType === 'generate') handleGenerateSubmit(e);
+  if (formType === 'automation') handleActivateAutomation(e);
 });
 
 document.addEventListener('DOMContentLoaded', init);

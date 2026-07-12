@@ -117,3 +117,77 @@ export async function listDir(owner, repo, path, token) {
   if (!Array.isArray(result)) throw new Error(`${path} est un fichier, pas un dossier.`);
   return result;
 }
+
+// --- Secrets et variables GitHub Actions ---
+// Les secrets utilisent le chiffrement scellé libsodium (via TweetNaCl, chargé en balises
+// <script> classiques dans index.html) : la valeur en clair ne quitte jamais ce navigateur
+// sans être chiffrée avec la clé publique du dépôt. Vérifié par un test croisé avec une
+// bibliothèque indépendante (PyNaCl) avant intégration.
+
+export async function getActionsPublicKey(owner, repo, token) {
+  const res = await fetch(`${API}/repos/${owner}/${repo}/actions/secrets/public-key`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(`Impossible de récupérer la clé publique Actions (${res.status}).`);
+  return res.json(); // { key_id, key } — key est en base64
+}
+
+function base64ToBytes(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+export function encryptForActionsSecret(secretValue, publicKeyBase64) {
+  if (!window.nacl || !window.sealedBox) {
+    throw new Error('Bibliothèque de chiffrement non chargée (tweetnacl / sealedbox-js).');
+  }
+  const publicKeyBytes = base64ToBytes(publicKeyBase64);
+  const messageBytes = new TextEncoder().encode(secretValue);
+  const sealed = window.sealedBox.seal(messageBytes, publicKeyBytes);
+  return bytesToBase64(sealed);
+}
+
+export async function setActionsSecret(owner, repo, secretName, secretValue, token) {
+  const { key_id, key } = await getActionsPublicKey(owner, repo, token);
+  const encrypted_value = encryptForActionsSecret(secretValue, key);
+  const res = await fetch(`${API}/repos/${owner}/${repo}/actions/secrets/${secretName}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ encrypted_value, key_id }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Échec de l'écriture du secret ${secretName} (${res.status}) : ${err.message || ''}`);
+  }
+}
+
+export async function setActionsVariable(owner, repo, name, value, token) {
+  const createRes = await fetch(`${API}/repos/${owner}/${repo}/actions/variables`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, value }),
+  });
+  if (createRes.status === 201) return;
+  if (createRes.status === 409) {
+    const updateRes = await fetch(`${API}/repos/${owner}/${repo}/actions/variables/${name}`, {
+      method: 'PATCH',
+      headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, value }),
+    });
+    if (!updateRes.ok) {
+      const err = await updateRes.json().catch(() => ({}));
+      throw new Error(`Échec de la mise à jour de la variable ${name} (${updateRes.status}) : ${err.message || ''}`);
+    }
+    return;
+  }
+  const err = await createRes.json().catch(() => ({}));
+  throw new Error(`Échec de l'écriture de la variable ${name} (${createRes.status}) : ${err.message || ''}`);
+}

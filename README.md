@@ -8,9 +8,7 @@ Le site a trois sections : **Accueil** (présentation), **Projets** (le catalogu
 
 1. **Fork** ce dépôt.
 2. Sur [vercel.com](https://vercel.com), importe ton fork. Framework preset : *Other*. Vercel détecte automatiquement `vercel.json` (build `npm run build`, dossier de sortie `.`).
-3. Dans les réglages du projet Vercel, ajoute ces variables d'environnement (aucune n'est un secret) :
-   - `SITE_URL` — l'URL de ton déploiement (ex. `https://ton-projet.vercel.app`), utilisée dans `sitemap.xml`/`robots.txt`/`llms.txt`.
-   - `SITE_REPO` — `TonPseudo/ton-fork` (ex. `Tryboy869/devlog`), utilisée pour le lien dans la section Contribuer.
+3. Dans les réglages du projet Vercel (Settings → Environment Variables), coche **"Enable access to System Environment Variables"** — une seule case à cocher, rien à taper. `SITE_URL` et `SITE_REPO` s'en déduisent automatiquement (URL de production et dépôt Git déjà connus de Vercel). Tu peux quand même forcer `SITE_URL`/`SITE_REPO` manuellement si besoin (domaine personnalisé, etc.), mais ce n'est plus nécessaire par défaut.
 4. Déploie. Le premier build génère `p/example-project.html`, `catalog.json`, `sitemap.xml`, `robots.txt` et `llms.txt` à partir de l'exemple fourni dans `projects/`.
 5. Ouvre le site déployé, menu ☰ → **Administration**, renseigne :
    - un token GitHub (classique ou [fine-grained](https://github.com/settings/tokens?type=beta), au choix),
@@ -25,13 +23,14 @@ Chaque écriture déclenche automatiquement un nouveau build Vercel, qui régén
 
 En plus du bouton manuel, `.github/workflows/auto-catalog.yml` tourne sur un cron et catalogue tout seul : il découvre tous tes dépôts publics (hors forks et hors ce dépôt), et ne (re)génère que ceux qui sont nouveaux ou poussés plus récemment que leur dernière entrée — pas besoin de maintenir une liste.
 
-Pour l'activer, dans les réglages GitHub du dépôt :
+Pour l'activer, **tout se passe depuis le panneau Administration** : une fois le fournisseur/clé/modèle renseignés (étape 5 ci-dessus), la section "Automatisation" propose une fréquence (heure / jour / semaine / cron personnalisé), une limite de dépôts par passage, et un champ optionnel pour un token couvrant aussi tes dépôts privés. Le bouton **Activer l'automatisation** pousse tout ça directement vers GitHub :
 
-- **Settings → Secrets and variables → Actions → Secrets** : ajoute `AI_API_KEY` (la clé du fournisseur choisi).
-- **Settings → Secrets and variables → Actions → Variables** : ajoute `AI_PROVIDER` (`groq` ou `openrouter`) et `AI_MODEL` (un identifiant valide chez ce fournisseur).
-- Optionnel : secret `CATALOG_PAT` si tu veux cataloguer aussi des dépôts privés (le token par défaut d'Actions ne lit que le public) ; variable `MAX_PER_RUN` pour changer la limite de dépôts traités par passage (5 par défaut).
-- La fréquence se règle directement dans `.github/workflows/auto-catalog.yml`, ligne `cron:` — le format est du cron standard.
-- Un lancement manuel est possible depuis l'onglet **Actions → Auto-catalogue → Run workflow**.
+- la clé IA part chiffrée (chiffrement scellé libsodium, calculé dans ce navigateur avec la vraie clé publique du dépôt — jamais en clair sur le réseau) comme secret `AI_API_KEY` ;
+- fournisseur/modèle/limite deviennent des variables de dépôt (`AI_PROVIDER`, `AI_MODEL`, `MAX_PER_RUN`) ;
+- si renseigné, le token pour dépôts privés part chiffré comme secret `CATALOG_PAT` ;
+- la ligne `cron:` de `.github/workflows/auto-catalog.yml` est réécrite selon la fréquence choisie.
+
+Aucune page GitHub à visiter. Un lancement manuel reste possible depuis l'onglet **Actions → Auto-catalogue → Run workflow** si tu ne veux pas attendre le prochain passage planifié.
 
 ## Ce qui vit où
 
@@ -43,12 +42,13 @@ Voir `skills/orchestrator.md`, `skills/blog-writing.md` et `skills/seo-sitemaps.
 
 ## Sécurité
 
-- Le token GitHub et la clé du fournisseur IA (chemin manuel) restent en `localStorage`, envoyés uniquement à `api.github.com` et à l'API du fournisseur choisi. Côté automatisation, `AI_API_KEY` et `CATALOG_PAT` restent des secrets GitHub Actions, jamais exposés dans les logs.
+- Le token GitHub et la clé du fournisseur IA (chemin manuel) restent en `localStorage`, envoyés uniquement à `api.github.com` et à l'API du fournisseur choisi. Côté automatisation, les valeurs sensibles (`AI_API_KEY`, `CATALOG_PAT`) sont chiffrées dans ce navigateur avec la vraie clé publique du dépôt (chiffrement scellé libsodium, via [TweetNaCl](https://github.com/dchest/tweetnacl-js)) avant tout envoi — GitHub est seul à pouvoir les déchiffrer, jamais exposées en clair sur le réseau ni dans les logs Actions.
 - Un token classique fonctionne, mais un [token fine-grained](https://github.com/settings/tokens?type=beta) limité à ce seul dépôt réduit les dégâts en cas de fuite — l'app affiche un avertissement non bloquant si elle détecte un token à accès large, sans jamais forcer le choix.
 - Tout contenu injecté dans le DOM passe par un échappement HTML systématique, avec [DOMPurify](https://github.com/cure53/DOMPurify) en filet de sécurité — un README malveillant ne peut pas faire exécuter de script dans le navigateur de l'admin.
 
 ## Limites connues de cette version
 
 - `build.js` et `auto-catalog.mjs` ont été exécutés et testés localement (syntaxe validée, logique vérifiée contre un faux serveur GitHub/IA simulant plusieurs scénarios : dépôt neuf, dépôt existant, fork à exclure, projet déjà à jour, dépôt sans README).
+- Le chiffrement scellé utilisé pour pousser les secrets Actions a été vérifié de bout en bout : chiffré avec le code réel de `github.js` (chargé comme de vraies balises `<script>`), puis déchiffré avec une bibliothèque indépendante (PyNaCl/libsodium) pour confirmer que le résultat est authentiquement déchiffrable — pas seulement "a l'air correct".
 - Les appels réels à `api.github.com`, Groq et OpenRouter avec de vrais identifiants n'ont pas pu être testés en conditions réelles dans l'environnement où ce projet a été construit. La forme des requêtes suit la documentation de chaque fournisseur, mais teste le flux complet avec tes propres identifiants avant de t'y fier pour un vrai dépôt.
 - Groq déprécie parfois des modèles sans préavis long : si `Récupérer les modèles` renvoie une erreur, vérifie d'abord que le modèle choisi est toujours actif.
