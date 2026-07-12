@@ -1,0 +1,29 @@
+{
+  "slug": "nexus-stellar",
+  "title": "Nexus-Stellar",
+  "hook": "Nexus-Stellar est un moteur de calcul émergent polyglotte auto-compilant qui résout des problèmes complexes par émergence naturelle plutôt que par algorithmes classiques. Il fournit des primitives que les développeurs combinent librement.",
+  "description": "Moteur de calcul émergent polyglotte auto-compilant pour résoudre des problèmes complexes",
+  "body": "Nexus-Stellar est un moteur de calcul qui résout des problèmes complexes par émergence naturelle plutôt que par algorithmes classiques. Il fournit des primitives que les développeurs combinent librement.\n\nLes 7 primitives de Nexus-Stellar sont :\n\n* Entity : l'unité atomique\n* Force : la loi d'interaction\n* Topology : le réseau\n* System : le conteneur\n* FusionEngine : la compression\n* Observer : le monitoring\n* Attractor : le point fixe\n\nNexus-Stellar peut être utilisé pour des applications telles que le load balancing distribué, les moteurs de jeu, le machine learning, les réseaux P2P, l'optimisation et le consensus distribué.",
+  "tags": [
+    "calcul émergent",
+    "polyglotte",
+    "auto-compilant",
+    "primitives",
+    "load balancing",
+    "moteur de jeu",
+    "machine learning",
+    "réseaux P2P",
+    "optimisation",
+    "consensus distribué"
+  ],
+  "stack": [
+    "Python",
+    "Rust",
+    "C++",
+    "numpy",
+    "Docker"
+  ],
+  "repoUrl": "https://github.com/Tryboy869/nexus-stellar",
+  "createdAt": "2026-07-12T13:51:59.174Z",
+  "updatedAt": "2026-07-12T13:51:59.174Z"
+}
