@@ -7,6 +7,9 @@
   "scripts": {
     "build": "node build.js"
   },
+  "dependencies": {
+    "marked": "18.0.6"
+  },
   "engines": {
     "node": ">=18"
   }

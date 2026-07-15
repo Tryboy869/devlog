@@ -19,6 +19,16 @@ Le site a trois sections : **Accueil** (présentation), **Projets** (le catalogu
 
 Chaque écriture déclenche automatiquement un nouveau build Vercel, qui régénère la page SEO du projet, le catalogue et les fichiers de découvrabilité.
 
+## Visuel de chaque projet
+
+Trois niveaux, du plus automatique au plus spécifique :
+
+1. **Couverture** — chaque page de projet affiche automatiquement l'image sociale GitHub du dépôt source (`opengraph.githubassets.com`, généré par GitHub lui-même, sans rien à configurer).
+2. **Média détecté** — avant d'appeler l'IA, le README est scanné pour des images/GIFs/vidéos YouTube pertinents (les badges de statut type shields.io sont exclus automatiquement). Si quelque chose de pertinent existe, l'IA choisit le meilleur et l'embarque dans la page (image, ou vidéo YouTube en iframe).
+3. **SVG généré** — si le README n'a vraiment aucun visuel exploitable, l'IA génère un petit motif SVG animé (abstrait, en rapport avec les tags/la stack) plutôt que de laisser la page sans aucun signal visuel. Ce SVG passe par un nettoyage strict (balises `<script>`, attributs `on*`, `@import`, `href` en `javascript:`/`data:` retirés) avant d'être affiché, aussi bien côté build que côté aperçu navigateur.
+
+Le corps (`body`) de chaque entrée est du **Markdown** (titres, blocs de code, listes, gras), rendu par [marked](https://github.com/markedjs/marked) des deux côtés — build et aperçu. Le skill `blog-writing.md` impose qu'un extrait de code du README apparaisse dans une section "Comment ça marche" quand la source en fournit un : l'objectif est une vraie profondeur technique, pas un résumé marketing.
+
 ## Automatisation (sans navigateur)
 
 En plus du bouton manuel, `.github/workflows/auto-catalog.yml` tourne sur un cron et catalogue tout seul : il découvre tous tes dépôts publics (hors forks et hors ce dépôt), et ne (re)génère que ceux qui sont nouveaux ou poussés plus récemment que leur dernière entrée — pas besoin de maintenir une liste.
@@ -39,6 +49,10 @@ Aucune page GitHub à visiter. Un lancement manuel reste possible depuis l'ongle
 - **Dans GitHub Actions** (`.github/scripts/auto-catalog.mjs`, sur cron) : découverte des dépôts, lecture des README, appel IA, écriture de `projects/*.json` — puis commit/push géré par le workflow.
 
 Voir `skills/orchestrator.md`, `skills/blog-writing.md` et `skills/seo-sitemaps.md` pour les règles exactes suivies par ces trois étapes.
+
+## Dépannage
+
+**Le cron ne semble jamais se déclencher** — comportement documenté de GitHub, pas un bug : après tout changement de planification, GitHub peut mettre 15 minutes à plus d'une heure à le "reconnaître", et le premier passage n'a lieu qu'au prochain horaire programmé après cette reconnaissance. Pour tester sans attendre : onglet **Actions → Auto-catalogue → Run workflow** (déclenchement manuel, indépendant du cron). Si ça ne produit rien non plus, c'est un vrai bug (secret/variable manquant) — vérifie les logs de ce run.
 
 ## Sécurité
 

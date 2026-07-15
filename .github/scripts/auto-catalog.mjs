@@ -8,6 +8,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractMediaCandidates, formatMediaCandidatesForPrompt } from '../../js/media.js';
+import { sanitizeGeneratedSvg } from '../../js/svg-sanitize.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const CATALOG_OWNER = process.env.CATALOG_OWNER;
@@ -99,6 +101,21 @@ function parseJsonResponse(text) {
   return JSON.parse(cleaned);
 }
 
+function sanitizeMediaField(media) {
+  if (!media || typeof media !== 'object' || !media.kind) return { kind: 'none' };
+  if (media.kind === 'generated-svg') {
+    const safeSvg = sanitizeGeneratedSvg(media.svg);
+    return safeSvg ? { kind: 'generated-svg', svg: safeSvg, caption: media.caption || '' } : { kind: 'none' };
+  }
+  if (media.kind === 'image' && media.url) {
+    return { kind: 'image', url: String(media.url), caption: media.caption || '' };
+  }
+  if (media.kind === 'youtube' && media.youtubeId) {
+    return { kind: 'youtube', youtubeId: String(media.youtubeId).replace(/[^\w-]/g, ''), caption: media.caption || '' };
+  }
+  return { kind: 'none' };
+}
+
 async function generateContent(systemPrompt, userPrompt) {
   const provider = PROVIDERS[AI_PROVIDER];
   const res = await fetch(`${provider.base}/chat/completions`, {
@@ -160,7 +177,18 @@ async function main() {
     }
 
     try {
-      const userPrompt = `Dépôt source : ${repo.html_url}\n\nContenu du README à transformer :\n\n${readme}`;
+      const userPrompt = [
+        `Dépôt source : ${repo.html_url}`,
+        '',
+        'Contenu du README à transformer :',
+        '',
+        readme,
+        '',
+        '---',
+        '',
+        'Candidats visuels détectés automatiquement (voir section "Détection de visuel") :',
+        formatMediaCandidatesForPrompt(extractMediaCandidates(readme)),
+      ].join('\n');
       const raw = await generateContent(systemPrompt, userPrompt);
       const parsed = parseJsonResponse(raw);
       const existing = loadExistingProject(slug);
@@ -174,6 +202,7 @@ async function main() {
         body: parsed.body || '',
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
         stack: Array.isArray(parsed.stack) ? parsed.stack : [],
+        media: sanitizeMediaField(parsed.media),
         repoUrl: repo.html_url,
         createdAt: (existing && existing.createdAt) || now,
         updatedAt: now,

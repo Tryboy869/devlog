@@ -7,6 +7,9 @@
 import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope, setActionsSecret, setActionsVariable } from './github.js';
 import { PROVIDERS, fetchModels, generateContent, parseJsonResponse } from './providers.js';
 import { buildBlogWritingPrompt } from './skills.js';
+import { marked } from 'https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.esm.js';
+
+marked.setOptions({ gfm: true, breaks: false });
 
 const CONFIG_KEY = 'devlog_config';
 const root = document.getElementById('app');
@@ -77,9 +80,31 @@ function formatDate(iso) {
 }
 
 function renderBodyHtml(text) {
-  const paragraphs = String(text || '').split(/\n\s*\n/).filter((p) => p.trim());
-  const html = paragraphs.map((p) => `<p>${escapeHtml(p.trim())}</p>`).join('\n');
-  return window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+  const html = marked.parse(String(text || ''));
+  if (!window.DOMPurify) return html;
+  return window.DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true } });
+}
+
+function renderMediaHtml(media) {
+  if (!media || media.kind === 'none' || !media.kind) return '';
+  const caption = media.caption ? `<figcaption>${escapeHtml(media.caption)}</figcaption>` : '';
+
+  if (media.kind === 'image' && media.url) {
+    return `<figure class="project-media"><img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.caption || '')}" loading="lazy" class="project-media-img">${caption}</figure>`;
+  }
+  if (media.kind === 'youtube' && media.youtubeId) {
+    const id = String(media.youtubeId).replace(/[^\w-]/g, '');
+    if (!id) return '';
+    return `<figure class="project-media"><div class="project-media-video"><iframe src="https://www.youtube-nocookie.com/embed/${id}" title="${escapeHtml(media.caption || 'Démonstration vidéo')}" loading="lazy" allow="picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>${caption}</figure>`;
+  }
+  if (media.kind === 'generated-svg' && media.svg) {
+    const safeSvg = window.DOMPurify
+      ? window.DOMPurify.sanitize(media.svg, { USE_PROFILES: { svg: true, svgFilters: true } })
+      : '';
+    if (!safeSvg) return '';
+    return `<figure class="project-media project-media--svg"><div class="project-media-svg">${safeSvg}</div>${caption}</figure>`;
+  }
+  return '';
 }
 
 // Accepte "proprietaire/depot" ET une URL GitHub complète (avec ou sans protocole,
@@ -214,7 +239,7 @@ function renderHeader() {
       <div class="wrap site-header__inner">
         <a class="brand" href="#accueil">devlog<span class="brand__dot">.</span></a>
         <button type="button" class="hamburger" data-action="toggle-nav" aria-label="Menu" aria-expanded="${state.navOpen ? 'true' : 'false'}">
-          <span></span><span></span><span></span>
+          <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
         </button>
       </div>
       ${state.navOpen ? renderNav() : ''}
@@ -234,13 +259,40 @@ function renderNav() {
 }
 
 function renderHero() {
+  const count = state.catalog.length;
+  const latest = state.catalog.reduce((acc, p) => (p.updatedAt && p.updatedAt > acc ? p.updatedAt : acc), '');
   return `
     <section id="accueil" class="hero">
-      <div class="wrap">
-        <p class="hero__kicker">Carnet de build</p>
-        <h1 class="hero__title">Un catalogue de projets qui s\u2019écrit tout seul.</h1>
-        <p class="hero__lead">Chaque entrée ci-dessous est générée à partir du README du dépôt correspondant. Une fois configuré, plus besoin d\u2019y retoucher à la main.</p>
-        <a href="#projets" class="btn btn--ghost">Voir les projets \u2193</a>
+      <div class="wrap hero__inner">
+        <div>
+          <p class="hero__kicker">Carnet de build</p>
+          <h1 class="hero__title">Un catalogue de projets qui s\u2019écrit tout seul.</h1>
+          <p class="hero__lead">Chaque entrée est générée à partir du README du dépôt correspondant. Une fois configuré, plus besoin d\u2019y retoucher à la main.</p>
+          <div class="hero__stats">
+            <div>
+              <span class="hero__stat-value">${count}</span>
+              <span class="hero__stat-label">${count > 1 ? 'projets' : 'projet'}</span>
+            </div>
+            ${latest ? `
+            <div>
+              <span class="hero__stat-value">${formatDate(latest)}</span>
+              <span class="hero__stat-label">dernière mise à jour</span>
+            </div>` : ''}
+          </div>
+          <div class="hero__actions">
+            <a href="#projets" class="btn btn--ghost">Voir les projets \u2193</a>
+          </div>
+        </div>
+        <div class="hero__glyph" aria-hidden="true">
+          ${['brass', 'sage', 'dusty-rose'].map((color) => `
+          <div class="hero__glyph-row">
+            <span class="hero__glyph-dot" style="background:var(--${color})"></span>
+            <div class="hero__glyph-bars">
+              <span class="hero__glyph-bar hero__glyph-bar--wide"></span>
+              <span class="hero__glyph-bar hero__glyph-bar--mid"></span>
+            </div>
+          </div>`).join('')}
+        </div>
       </div>
     </section>
   `;
@@ -343,12 +395,12 @@ function renderAutomation() {
         ${state.automationFrequency === 'custom' ? `
         <label class="field">
           <span>Expression cron</span>
-          <input type="text" name="customCron" placeholder="0 6 * * *" value="${escapeHtml(state.automationCustomCron)}">
+          <input type="text" name="customCron" placeholder="0 6 * * *" value="${escapeHtml(state.automationCustomCron)}" autocomplete="off" spellcheck="false">
           <small class="field__hint">Format cron standard, en UTC.</small>
         </label>` : ''}
         <label class="field">
           <span>Token pour dépôts privés (optionnel)</span>
-          <input type="password" name="catalogPat" placeholder="laisser vide pour dépôts publics uniquement" value="${escapeHtml(state.catalogPat)}" autocomplete="off">
+          <input type="password" name="catalogPat" placeholder="laisser vide pour dépôts publics uniquement" value="${escapeHtml(state.catalogPat)}" autocomplete="off" spellcheck="false">
           <small class="field__hint">Poussé comme secret CATALOG_PAT. Sans ça, seuls tes dépôts publics sont catalogués automatiquement.</small>
         </label>
         <div class="form__actions">
@@ -368,6 +420,7 @@ function renderPreview(project) {
       </div>
       <h1 class="project-title">${escapeHtml(project.title)}</h1>
       ${project.hook ? `<p class="project-hook">${escapeHtml(project.hook)}</p>` : ''}
+      ${renderMediaHtml(project.media)}
       <div class="project-body">${renderBodyHtml(project.body)}</div>
       ${project.tags && project.tags.length ? `<ul class="project-tags">${project.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
       ${project.stack && project.stack.length ? `<ul class="project-stack">${project.stack.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
@@ -388,7 +441,7 @@ function renderConfigForm() {
     <form data-form="config" class="form" novalidate>
       <label class="field">
         <span>Token GitHub</span>
-        <input type="password" name="token" placeholder="ghp_... ou github_pat_..." value="${state.token ? '\u2022'.repeat(12) : ''}" autocomplete="off">
+        <input type="password" name="token" placeholder="ghp_… ou github_pat_…" value="${state.token ? '\u2022'.repeat(12) : ''}" autocomplete="off" spellcheck="false">
         ${state.token
           ? '<small class="field__hint field__hint--ok">\u2713 Token enregistré dans ce navigateur. Laisse ce champ tel quel pour le garder, ou colle-en un nouveau pour le remplacer.</small>'
           : '<small class="field__hint">Classique ou fine-grained, au choix \u2014 stocké uniquement dans ce navigateur.</small>'}
@@ -398,11 +451,11 @@ function renderConfigForm() {
       <div class="field-row">
         <label class="field">
           <span>Propriétaire du dépôt</span>
-          <input type="text" name="owner" placeholder="ex. Tryboy869" value="${escapeHtml(cfg.owner || '')}">
+          <input type="text" name="owner" placeholder="ex. Tryboy869" value="${escapeHtml(cfg.owner || '')}" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
           <span>Dépôt (catalogue)</span>
-          <input type="text" name="repo" placeholder="ex. devlog" value="${escapeHtml(cfg.repo || '')}">
+          <input type="text" name="repo" placeholder="ex. devlog" value="${escapeHtml(cfg.repo || '')}" autocomplete="off" spellcheck="false">
         </label>
       </div>
 
@@ -416,7 +469,7 @@ function renderConfigForm() {
         </label>
         <label class="field">
           <span>Clé API</span>
-          <input type="password" name="apiKey" placeholder="clé du fournisseur choisi" value="${escapeHtml(cfg.apiKey || '')}" autocomplete="off">
+          <input type="password" name="apiKey" placeholder="clé du fournisseur choisi" value="${escapeHtml(cfg.apiKey || '')}" autocomplete="off" spellcheck="false">
         </label>
       </div>
 
@@ -452,7 +505,7 @@ function renderGenerateForm() {
     <form data-form="generate" class="form">
       <label class="field">
         <span>Dépôt à cataloguer</span>
-        <input type="text" name="target" placeholder="proprietaire/depot ou https://github.com/proprietaire/depot" value="${escapeHtml(state.draftTarget)}" required>
+        <input type="text" name="target" placeholder="proprietaire/depot ou https://github.com/proprietaire/depot" value="${escapeHtml(state.draftTarget)}" autocomplete="off" spellcheck="false" required>
         <small class="field__hint">Les deux formats marchent : "proprietaire/depot" ou un lien GitHub complet. Doit contenir un README.md lisible avec ce token.</small>
       </label>
       <div class="form__actions">
@@ -515,6 +568,7 @@ async function handleSaveConfigSubmit(e) {
 }
 
 async function handleClearToken() {
+  if (!window.confirm('Oublier le token GitHub enregistré dans ce navigateur ?')) return;
   clearToken();
   state.token = '';
   state.scopeWarning = null;
@@ -630,6 +684,7 @@ async function handleGenerateSubmit(e) {
       body: parsedContent.body || '',
       tags: Array.isArray(parsedContent.tags) ? parsedContent.tags : [],
       stack: Array.isArray(parsedContent.stack) ? parsedContent.stack : [],
+      media: parsedContent.media && typeof parsedContent.media === 'object' ? parsedContent.media : { kind: 'none' },
       repoUrl: `https://github.com/${targetOwner}/${targetRepo}`,
       createdAt,
       updatedAt: now,

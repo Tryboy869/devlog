@@ -2,6 +2,8 @@
 // déploiement) et assemble le prompt système. robots.txt/sitemap.xml/llms.txt ne passent
 // jamais par ici : ils sont générés de façon déterministe par build.js (voir seo-sitemaps.md).
 
+import { extractMediaCandidates, formatMediaCandidatesForPrompt } from './media.js';
+
 const SKILL_PATHS = {
   orchestrator: '/skills/orchestrator.md',
   blogWriting: '/skills/blog-writing.md',
@@ -24,6 +26,18 @@ export async function buildBlogWritingPrompt(readmeContent, repoUrl) {
     loadSkill('blogWriting'),
   ]);
   const systemPrompt = `${orchestrator}\n\n---\n\n${blogWriting}`;
-  const userPrompt = `Dépôt source : ${repoUrl}\n\nContenu du README à transformer :\n\n${readmeContent}`;
+  const mediaCandidates = extractMediaCandidates(readmeContent);
+  const userPrompt = [
+    `Dépôt source : ${repoUrl}`,
+    '',
+    'Contenu du README à transformer :',
+    '',
+    readmeContent,
+    '',
+    '---',
+    '',
+    'Candidats visuels détectés automatiquement (voir section "Détection de visuel") :',
+    formatMediaCandidatesForPrompt(mediaCandidates),
+  ].join('\n');
   return { systemPrompt, userPrompt };
 }

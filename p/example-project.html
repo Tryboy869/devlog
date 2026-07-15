@@ -6,15 +6,20 @@
   <title>Example Project — à remplacer — DevLog</title>
   <meta name="description" content="Entrée d&#39;exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.">
   <link rel="canonical" href="https://devlog-tryboy869.vercel.app/p/example-project.html">
+  <meta name="theme-color" content="#151A21">
   <meta property="og:type" content="article">
   <meta property="og:title" content="Example Project — à remplacer">
   <meta property="og:description" content="Entrée d&#39;exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.">
   <meta property="og:url" content="https://devlog-tryboy869.vercel.app/p/example-project.html">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://opengraph.githubassets.com/1/octocat/Hello-World">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Example Project — à remplacer">
   <meta name="twitter:description" content="Entrée d&#39;exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.">
+  <meta name="twitter:image" content="https://opengraph.githubassets.com/1/octocat/Hello-World">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CreativeWork","name":"Example Project — à remplacer","description":"Entrée d'exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.","dateCreated":"2026-07-09T00:00:00.000Z","dateModified":"2026-07-09T00:00:00.000Z","url":"https://devlog-tryboy869.vercel.app/p/example-project.html","codeRepository":"https://github.com/octocat/Hello-World","keywords":"exemple, demo"}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CreativeWork","name":"Example Project — à remplacer","description":"Entrée d'exemple DevLog — supprime ce fichier une fois ton premier vrai projet catalogué.","dateCreated":"2026-07-09T00:00:00.000Z","dateModified":"2026-07-13T00:00:00.000Z","url":"https://devlog-tryboy869.vercel.app/p/example-project.html","codeRepository":"https://github.com/octocat/Hello-World","keywords":"exemple, demo","image":"https://opengraph.githubassets.com/1/octocat/Hello-World"}</script>
 </head>
 <body>
   <header class="site-header">
@@ -24,15 +29,29 @@
   </header>
   <main class="wrap project-page">
     <a class="project-back" href="/">&larr; retour au catalogue</a>
+    <img class="project-cover" src="https://opengraph.githubassets.com/1/octocat/Hello-World" alt="Aperçu GitHub de Example Project — à remplacer" width="1280" height="640" loading="eager" fetchpriority="high">
     <h1 class="project-title">Example Project — à remplacer</h1>
     <p class="project-hook">Entrée de démonstration : elle existe pour vérifier que le pipeline JSON → page statique → catalogue → sitemap fonctionne avant le tout premier vrai projet catalogué.</p>
-    <div class="project-body"><p>Ce fichier existe uniquement pour que build.js ait quelque chose à traiter au tout premier build, et pour que tu voies à quoi ressemble une page générée avant de connecter un vrai dépôt.</p>
-<p>Une fois un token GitHub et un fournisseur IA configurés depuis le panneau d&#39;administration, génère une vraie entrée à partir d&#39;un de tes dépôts, puis supprime purement et simplement ce fichier projects/example-project.json.</p></div>
+    
+    <figure class="project-media project-media--svg" aria-hidden="false">
+      <div class="project-media-svg"><svg viewBox="0 0 240 80" role="img" aria-label="Motif décoratif animé"><style>.d{animation:pulse 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center;}.d:nth-child(2){animation-delay:.3s}.d:nth-child(3){animation-delay:.6s}.d:nth-child(4){animation-delay:.9s}@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}@media (prefers-reduced-motion: reduce){.d{animation:none;opacity:.8}}</style><circle class="d" cx="40" cy="40" r="7" fill="#D9A441"/><circle class="d" cx="100" cy="40" r="7" fill="#5FA777"/><circle class="d" cx="160" cy="40" r="7" fill="#C1666B"/><circle class="d" cx="220" cy="40" r="7" fill="#D9A441"/></svg></div>
+      <figcaption>Motif de substitution : ce projet d&#39;exemple n&#39;a pas d&#39;image dans son README.</figcaption>
+    </figure>
+    <div class="project-body"><p>Ce fichier existe uniquement pour que build.js ait quelque chose à traiter au tout premier build, et pour que tu voies à quoi ressemble une page générée (corps en Markdown, visuel, tags) avant de connecter un vrai dépôt.</p>
+<h2>Comment ça marche</h2>
+<p>Le corps de chaque entrée est du Markdown restreint, rendu par un vrai moteur (marked) des deux côtés — build et aperçu navigateur. Ça veut dire que du code recopié depuis un vrai README s&#39;affiche correctement :</p>
+<pre><code class="language-bash">npm install mon-projet
+npm run build
+</code></pre>
+<p>Une fois un token GitHub et un fournisseur IA configurés depuis le panneau d&#39;administration, génère une vraie entrée à partir d&#39;un de tes dépôts, puis supprime purement et simplement ce fichier <code>projects/example-project.json</code>.</p>
+<h2>Stack</h2>
+<p>Cette entrée de démonstration n&#39;a pas de vraie stack — mais tes vrais projets, si le README la précise, en auront une ci-dessous.</p>
+</div>
     <ul class="project-tags"><li>exemple</li><li>demo</li></ul>
     <ul class="project-stack"><li>JavaScript</li></ul>
     <p class="project-meta">
       Dépôt source : <a href="https://github.com/octocat/Hello-World">https://github.com/octocat/Hello-World</a><br>
-      Mis à jour le 2026-07-09
+      Mis à jour le 2026-07-13
     </p>
   </main>
 </body>
