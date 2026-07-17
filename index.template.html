@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevLog — carnet de projets</title>
+  <meta name="description" content="Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README.">
+  <meta name="theme-color" content="#151A21">
+  <!--OG_TAGS-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.11/dist/purify.min.js" defer></script>
+  <!-- Chiffrement scellé (libsodium via TweetNaCl) pour pousser des secrets GitHub Actions
+       depuis ce navigateur, sans jamais transiter par un serveur intermédiaire.
+       Ordre important : sealedbox.web.js lit window.nacl, donc nacl doit se charger avant. -->
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-sealedbox-js@1.2.0/sealedbox.web.js" defer></script>
+</head>
+<body>
+  <div id="app"><!--APP_SHELL--><noscript><p style="padding:2rem;font-family:ui-monospace,monospace;color:#8B93A1;">Ce site fonctionne sans JavaScript pour la lecture ; active-le pour l\u2019administration.</p></noscript></div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

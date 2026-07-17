@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { marked } from 'marked';
 import { sanitizeGeneratedSvg } from './js/svg-sanitize.js';
+import { renderHeroSection, renderCatalogSection, renderContributeSection, escapeHtml } from './js/render-catalog.js';
 
 const ROOT = process.cwd();
 const PROJECTS_DIR = path.join(ROOT, 'projects');
@@ -34,12 +35,6 @@ if (!process.env.SITE_URL && !AUTO_SITE_URL) {
 }
 
 marked.setOptions({ gfm: true, breaks: false });
-
-function escapeHtml(str) {
-  return String(str ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
 
 // Empêche un </script> présent dans les données de casser la balise JSON-LD.
 function jsonLdSafe(obj) {
@@ -240,6 +235,51 @@ function buildLlmsTxt(projects) {
   return lines.join('\n');
 }
 
+// Génère la page racine à partir du gabarit, avec le hero/catalogue/contribuer déjà
+// rendus dedans (et non plus laissés au seul JavaScript client) : sans ça, tout visiteur
+// ou robot qui n'exécute pas de JS ne voit que le message de chargement, jamais le vrai
+// contenu — invisible pour les aperçus de liens et une partie des crawlers.
+function buildIndexHtml(catalogEntries, siteRepoUrl) {
+  const templatePath = path.join(ROOT, 'index.template.html');
+  if (!fs.existsSync(templatePath)) {
+    console.warn('[build] index.template.html introuvable — index.html non régénéré.');
+    return;
+  }
+  const template = fs.readFileSync(templatePath, 'utf8');
+
+  const shell = [
+    renderHeroSection(catalogEntries),
+    '<div class="wrap">',
+    renderCatalogSection(catalogEntries, true),
+    '</div>',
+    renderContributeSection(siteRepoUrl),
+  ].join('\n');
+
+  const description = 'Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README.';
+  const mostRecentCover = catalogEntries
+    .filter((p) => p.cover)
+    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0]?.cover;
+
+  const ogTags = [
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:title" content="DevLog — carnet de projets">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
+    `<meta property="og:url" content="${SITE_URL}/">`,
+    mostRecentCover ? `<meta property="og:image" content="${mostRecentCover}">` : '',
+    `<meta name="twitter:card" content="${mostRecentCover ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="DevLog — carnet de projets">`,
+    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
+    mostRecentCover ? `<meta name="twitter:image" content="${mostRecentCover}">` : '',
+    `<link rel="canonical" href="${SITE_URL}/">`,
+  ].filter(Boolean).join('\n  ');
+
+  const finalHtml = template
+    .replace('<!--OG_TAGS-->', ogTags)
+    .replace('<!--APP_SHELL-->', shell);
+
+  fs.writeFileSync(path.join(ROOT, 'index.html'), finalHtml, 'utf8');
+}
+
 function main() {
   const projects = loadProjects();
   fs.mkdirSync(PAGES_DIR, { recursive: true });
@@ -248,12 +288,14 @@ function main() {
     fs.writeFileSync(path.join(PAGES_DIR, `${project.slug}.html`), renderProjectPage(project), 'utf8');
   }
 
-  fs.writeFileSync(path.join(ROOT, 'catalog.json'), JSON.stringify(buildCatalogJson(projects), null, 2), 'utf8');
+  const catalog = buildCatalogJson(projects);
+  fs.writeFileSync(path.join(ROOT, 'catalog.json'), JSON.stringify(catalog, null, 2), 'utf8');
   fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), buildSitemap(projects), 'utf8');
   fs.writeFileSync(path.join(ROOT, 'robots.txt'), buildRobots(), 'utf8');
   fs.writeFileSync(path.join(ROOT, 'llms.txt'), buildLlmsTxt(projects), 'utf8');
+  buildIndexHtml(catalog.projects, catalog.siteRepo);
 
-  console.log(`[build] ${projects.length} projet(s) — pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
+  console.log(`[build] ${projects.length} projet(s) — index.html, pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
 }
 
 main();

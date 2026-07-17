@@ -19,16 +19,6 @@ Le site a trois sections : **Accueil** (présentation), **Projets** (le catalogu
 
 Chaque écriture déclenche automatiquement un nouveau build Vercel, qui régénère la page SEO du projet, le catalogue et les fichiers de découvrabilité.
 
-## Visuel de chaque projet
-
-Trois niveaux, du plus automatique au plus spécifique :
-
-1. **Couverture** — chaque page de projet affiche automatiquement l'image sociale GitHub du dépôt source (`opengraph.githubassets.com`, généré par GitHub lui-même, sans rien à configurer).
-2. **Média détecté** — avant d'appeler l'IA, le README est scanné pour des images/GIFs/vidéos YouTube pertinents (les badges de statut type shields.io sont exclus automatiquement). Si quelque chose de pertinent existe, l'IA choisit le meilleur et l'embarque dans la page (image, ou vidéo YouTube en iframe).
-3. **SVG généré** — si le README n'a vraiment aucun visuel exploitable, l'IA génère un petit motif SVG animé (abstrait, en rapport avec les tags/la stack) plutôt que de laisser la page sans aucun signal visuel. Ce SVG passe par un nettoyage strict (balises `<script>`, attributs `on*`, `@import`, `href` en `javascript:`/`data:` retirés) avant d'être affiché, aussi bien côté build que côté aperçu navigateur.
-
-Le corps (`body`) de chaque entrée est du **Markdown** (titres, blocs de code, listes, gras), rendu par [marked](https://github.com/markedjs/marked) des deux côtés — build et aperçu. Le skill `blog-writing.md` impose qu'un extrait de code du README apparaisse dans une section "Comment ça marche" quand la source en fournit un : l'objectif est une vraie profondeur technique, pas un résumé marketing.
-
 ## Automatisation (sans navigateur)
 
 En plus du bouton manuel, `.github/workflows/auto-catalog.yml` tourne sur un cron et catalogue tout seul : il découvre tous tes dépôts publics (hors forks et hors ce dépôt), et ne (re)génère que ceux qui sont nouveaux ou poussés plus récemment que leur dernière entrée — pas besoin de maintenir une liste.
@@ -42,17 +32,33 @@ Pour l'activer, **tout se passe depuis le panneau Administration** : une fois le
 
 Aucune page GitHub à visiter. Un lancement manuel reste possible depuis l'onglet **Actions → Auto-catalogue → Run workflow** si tu ne veux pas attendre le prochain passage planifié.
 
-## Ce qui vit où
+## Visuel de chaque projet
 
-- **Dans le navigateur du visiteur** (`js/*.js`, à la visite) : configuration, lecture/écriture GitHub, appel au fournisseur IA. Rien de tout ça ne tourne sur un serveur.
-- **Au build Vercel** (`build.js`, à chaque push) : lecture de `projects/*.json`, génération des pages statiques `p/*.html`, de `catalog.json`, `sitemap.xml`, `robots.txt` et `llms.txt`.
-- **Dans GitHub Actions** (`.github/scripts/auto-catalog.mjs`, sur cron) : découverte des dépôts, lecture des README, appel IA, écriture de `projects/*.json` — puis commit/push géré par le workflow.
+Trois niveaux, du plus automatique au plus spécifique :
 
-Voir `skills/orchestrator.md`, `skills/blog-writing.md` et `skills/seo-sitemaps.md` pour les règles exactes suivies par ces trois étapes.
+1. **Couverture** — chaque page de projet affiche automatiquement l'image sociale GitHub du dépôt source (`opengraph.githubassets.com`, générée par GitHub lui-même, sans rien à configurer).
+2. **Média détecté** — avant d'appeler l'IA, le README est scanné pour des images/GIFs/vidéos YouTube pertinents (les badges de statut type shields.io sont exclus automatiquement). Si quelque chose de pertinent existe, l'IA choisit le meilleur et l'embarque dans la page (image, ou vidéo YouTube en iframe).
+3. **SVG généré** — si le README n'a vraiment aucun visuel exploitable, l'IA génère un petit motif SVG animé (abstrait, en rapport avec les tags/la stack) plutôt que de laisser la page sans aucun signal visuel. Ce SVG passe par un nettoyage strict (balises `<script>`, attributs `on*`, `@import`, `href` en `javascript:`/`data:` retirés) avant d'être affiché, aussi bien côté build que côté aperçu navigateur.
+
+Le corps (`body`) de chaque entrée est du **Markdown** (titres, blocs de code, listes, gras), rendu par [marked](https://github.com/markedjs/marked) des deux côtés — build et aperçu. Le skill `blog-writing.md` impose qu'un extrait de code du README apparaisse dans une section "Comment ça marche" quand la source en fournit un : l'objectif est une vraie profondeur technique, pas un résumé marketing.
+
+## Fiabilité face aux petites fenêtres de contexte
+
+Les modèles open source hébergés sur Groq n'ont pas tous une grande fenêtre de contexte, et un long README peut dépasser ce qu'un modèle donné peut réellement recevoir. Avant chaque génération (manuelle ou automatisée), la taille du README est comparée à la fenêtre de contexte réelle du modèle choisi (récupérée via l'API du fournisseur). Si ça ne tient pas, le README est découpé en sections et condensé séquentiellement (plusieurs appels, un par section, chacun ne gardant que les faits concrets) jusqu'à tenir dans la fenêtre — avec un garde-fou qui tronque plutôt que de boucler indéfiniment sur un cas extrême. Ça marche pareil côté navigateur et côté automatisation.
 
 ## Dépannage
 
 **Le cron ne semble jamais se déclencher** — comportement documenté de GitHub, pas un bug : après tout changement de planification, GitHub peut mettre 15 minutes à plus d'une heure à le "reconnaître", et le premier passage n'a lieu qu'au prochain horaire programmé après cette reconnaissance. Pour tester sans attendre : onglet **Actions → Auto-catalogue → Run workflow** (déclenchement manuel, indépendant du cron). Si ça ne produit rien non plus, c'est un vrai bug (secret/variable manquant) — vérifie les logs de ce run.
+
+## Ce qui vit où
+
+- **Dans le navigateur du visiteur** (`js/*.js`, à la visite) : configuration, lecture/écriture GitHub, appel au fournisseur IA. Rien de tout ça ne tourne sur un serveur.
+- **Au build Vercel** (`build.js`, à chaque push) : lecture de `projects/*.json`, génération de `index.html` (à partir de `index.template.html`, avec le hero/catalogue/contribuer déjà rendus dedans — sans ça, un visiteur ou robot qui n'exécute pas de JS ne verrait qu'un message de chargement), des pages statiques `p/*.html`, de `catalog.json`, `sitemap.xml`, `robots.txt` et `llms.txt`.
+- **Dans GitHub Actions** (`.github/scripts/auto-catalog.mjs`, sur cron) : découverte des dépôts, lecture des README, appel IA, écriture de `projects/*.json` — puis commit/push géré par le workflow.
+
+`js/render-catalog.js` (rendu du hero et du catalogue) et `js/context-budget.js` (gestion de la fenêtre de contexte) sont partagés tels quels entre le navigateur et le build/l'automatisation — une seule source de vérité, pas de logique dupliquée qui pourrait diverger.
+
+Voir `skills/orchestrator.md`, `skills/blog-writing.md` et `skills/seo-sitemaps.md` pour les règles exactes suivies par ces trois étapes.
 
 ## Sécurité
 

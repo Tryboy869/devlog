@@ -44,7 +44,11 @@ export async function fetchModels(providerId, apiKey) {
   }
   const json = await res.json();
   const list = Array.isArray(json.data) ? json.data : [];
-  return list.map((m) => m.id).sort();
+  // Le nom du champ diffère selon le fournisseur : context_window chez Groq,
+  // context_length chez OpenRouter. On prend celui qui existe.
+  return list
+    .map((m) => ({ id: m.id, contextWindow: m.context_window || m.context_length || null }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function generateContent(providerId, apiKey, model, systemPrompt, userPrompt) {

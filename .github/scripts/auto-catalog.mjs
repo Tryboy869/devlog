@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { extractMediaCandidates, formatMediaCandidatesForPrompt } from '../../js/media.js';
 import { sanitizeGeneratedSvg } from '../../js/svg-sanitize.js';
+import { fitToContextWindow, DEFAULT_CONTEXT_WINDOW } from '../../js/context-budget.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const CATALOG_OWNER = process.env.CATALOG_OWNER;
@@ -116,6 +117,24 @@ function sanitizeMediaField(media) {
   return { kind: 'none' };
 }
 
+async function fetchModelContextWindow() {
+  const provider = PROVIDERS[AI_PROVIDER];
+  try {
+    const res = await fetch(`${provider.base}/models`, {
+      headers: { Authorization: `Bearer ${AI_API_KEY}` },
+    });
+    if (!res.ok) return DEFAULT_CONTEXT_WINDOW;
+    const json = await res.json();
+    const list = Array.isArray(json.data) ? json.data : [];
+    const match = list.find((m) => m.id === AI_MODEL);
+    // Le nom du champ diffère selon le fournisseur : context_window chez Groq,
+    // context_length chez OpenRouter.
+    return (match && (match.context_window || match.context_length)) || DEFAULT_CONTEXT_WINDOW;
+  } catch {
+    return DEFAULT_CONTEXT_WINDOW;
+  }
+}
+
 async function generateContent(systemPrompt, userPrompt) {
   const provider = PROVIDERS[AI_PROVIDER];
   const res = await fetch(`${provider.base}/chat/completions`, {
@@ -163,6 +182,8 @@ async function main() {
   }
 
   const systemPrompt = loadSkillsPrompt();
+  const contextWindow = await fetchModelContextWindow();
+  console.log(`[auto-catalog] fenêtre de contexte pour ${AI_MODEL} : ${contextWindow} tokens.`);
   fs.mkdirSync('projects', { recursive: true });
 
   let written = 0;
@@ -177,12 +198,18 @@ async function main() {
     }
 
     try {
+      const callModelForCondense = (instruction, chunk) => generateContent(instruction, chunk);
+      const { text: fittedReadme, wasCondensed, passes } = await fitToContextWindow(readme, contextWindow, callModelForCondense);
+      if (wasCondensed) {
+        console.log(`  … README condensé en ${passes} passe(s) pour tenir dans la fenêtre de contexte.`);
+      }
+
       const userPrompt = [
         `Dépôt source : ${repo.html_url}`,
         '',
         'Contenu du README à transformer :',
         '',
-        readme,
+        fittedReadme,
         '',
         '---',
         '',

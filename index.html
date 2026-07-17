@@ -6,6 +6,16 @@
   <title>DevLog — carnet de projets</title>
   <meta name="description" content="Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README.">
   <meta name="theme-color" content="#151A21">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DevLog — carnet de projets">
+  <meta property="og:description" content="Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README.">
+  <meta property="og:url" content="https://devlog-rose-nine.vercel.app/">
+  <meta property="og:image" content="https://opengraph.githubassets.com/1/octocat/Hello-World">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DevLog — carnet de projets">
+  <meta name="twitter:description" content="Catalogue de projets développeur généré et tenu à jour automatiquement à partir de leurs README.">
+  <meta name="twitter:image" content="https://opengraph.githubassets.com/1/octocat/Hello-World">
+  <link rel="canonical" href="https://devlog-rose-nine.vercel.app/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -19,8 +29,83 @@
 </head>
 <body>
   <div id="app">
-    <p style="padding:2rem;font-family:ui-monospace,monospace;color:#8B93A1;">Chargement du catalogue…</p>
-  </div>
+    <section id="accueil" class="hero">
+      <div class="wrap hero__inner">
+        <div>
+          <p class="hero__kicker">Carnet de build</p>
+          <h1 class="hero__title">Un catalogue de projets qui s’écrit tout seul.</h1>
+          <p class="hero__lead">Chaque entrée est générée à partir du README du dépôt correspondant. Une fois configuré, plus besoin d’y retoucher à la main.</p>
+          <div class="hero__stats">
+            <div>
+              <span class="hero__stat-value">1</span>
+              <span class="hero__stat-label">projet</span>
+            </div>
+            
+            <div>
+              <span class="hero__stat-value">13 juil. 2026</span>
+              <span class="hero__stat-label">dernière mise à jour</span>
+            </div>
+          </div>
+          <div class="hero__actions">
+            <a href="#projets" class="btn btn--ghost">Voir les projets ↓</a>
+          </div>
+        </div>
+        <div class="hero__glyph" aria-hidden="true">
+          
+          <div class="hero__glyph-row">
+            <span class="hero__glyph-dot" style="background:var(--brass)"></span>
+            <div class="hero__glyph-bars">
+              <span class="hero__glyph-bar hero__glyph-bar--wide"></span>
+              <span class="hero__glyph-bar hero__glyph-bar--mid"></span>
+            </div>
+          </div>
+          <div class="hero__glyph-row">
+            <span class="hero__glyph-dot" style="background:var(--sage)"></span>
+            <div class="hero__glyph-bars">
+              <span class="hero__glyph-bar hero__glyph-bar--wide"></span>
+              <span class="hero__glyph-bar hero__glyph-bar--mid"></span>
+            </div>
+          </div>
+          <div class="hero__glyph-row">
+            <span class="hero__glyph-dot" style="background:var(--dusty-rose)"></span>
+            <div class="hero__glyph-bars">
+              <span class="hero__glyph-bar hero__glyph-bar--wide"></span>
+              <span class="hero__glyph-bar hero__glyph-bar--mid"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  
+<div class="wrap">
+
+    <section id="projets" aria-label="Catalogue de projets">
+      <ol class="log">
+        
+          <li class="log-entry">
+            <span class="log-dot" aria-hidden="true"></span>
+            <div class="log-meta">
+              <span class="log-code">dbff35b</span>
+              <time datetime="2026-07-13T00:00:00.000Z">13 juil. 2026</time>
+            </div>
+            <h2 class="log-title"><a href="/p/example-project.html">Example Project — à remplacer</a></h2>
+            <p class="log-hook">Entrée de démonstration : elle existe pour vérifier que le pipeline JSON → page statique → catalogue → sitemap fonctionne avant le tout premier vrai projet catalogué.</p>
+            <ul class="log-tags"><li>exemple</li><li>demo</li></ul>
+          </li>
+        
+      </ol>
+    </section>
+  
+</div>
+
+    <section id="contribuer" class="contribute">
+      <div class="wrap">
+        <h2 class="admin__title">Contribuer</h2>
+        <p>Ce site est généré par un outil open source : une idée, un bug, une amélioration à proposer ?</p>
+        <a class="btn" href="https://github.com/Tryboy869/devlog" target="_blank" rel="noopener">Voir le dépôt sur GitHub ↗</a>
+      </div>
+    </section>
+  <noscript><p style="padding:2rem;font-family:ui-monospace,monospace;color:#8B93A1;">Ce site fonctionne sans JavaScript pour la lecture ; active-le pour l\u2019administration.</p></noscript></div>
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

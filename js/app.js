@@ -8,6 +8,8 @@ import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope, se
 import { PROVIDERS, fetchModels, generateContent, parseJsonResponse } from './providers.js';
 import { buildBlogWritingPrompt } from './skills.js';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.esm.js';
+import { fitToContextWindow, DEFAULT_CONTEXT_WINDOW } from './context-budget.js';
+import { escapeHtml, shortCode, formatDate, renderHeroSection, renderCatalogSection, renderContributeSection } from './render-catalog.js';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -56,27 +58,6 @@ function slugify(str) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-+|-+$)/g, '');
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-
-function shortCode(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-  return h.toString(16).padStart(7, '0').slice(0, 7);
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch {
-    return iso;
-  }
 }
 
 function renderBodyHtml(text) {
@@ -223,11 +204,11 @@ function render() {
     ${renderHeader()}
     ${state.message ? renderMessage() : ''}
     <main>
-      ${renderHero()}
+      ${renderHeroSection(state.catalog)}
       <div class="wrap">
-        ${renderCatalog()}
+        ${renderCatalogSection(state.catalog, !state.showAdmin)}
       </div>
-      ${renderContribute()}
+      ${renderContributeSection(state.siteRepo || (state.config.owner && state.config.repo ? `https://github.com/${state.config.owner}/${state.config.repo}` : null))}
       ${state.showAdmin ? `<div class="wrap">${renderAdmin()}</div>` : ''}
     </main>
   `;
@@ -258,98 +239,12 @@ function renderNav() {
   `;
 }
 
-function renderHero() {
-  const count = state.catalog.length;
-  const latest = state.catalog.reduce((acc, p) => (p.updatedAt && p.updatedAt > acc ? p.updatedAt : acc), '');
-  return `
-    <section id="accueil" class="hero">
-      <div class="wrap hero__inner">
-        <div>
-          <p class="hero__kicker">Carnet de build</p>
-          <h1 class="hero__title">Un catalogue de projets qui s\u2019écrit tout seul.</h1>
-          <p class="hero__lead">Chaque entrée est générée à partir du README du dépôt correspondant. Une fois configuré, plus besoin d\u2019y retoucher à la main.</p>
-          <div class="hero__stats">
-            <div>
-              <span class="hero__stat-value">${count}</span>
-              <span class="hero__stat-label">${count > 1 ? 'projets' : 'projet'}</span>
-            </div>
-            ${latest ? `
-            <div>
-              <span class="hero__stat-value">${formatDate(latest)}</span>
-              <span class="hero__stat-label">dernière mise à jour</span>
-            </div>` : ''}
-          </div>
-          <div class="hero__actions">
-            <a href="#projets" class="btn btn--ghost">Voir les projets \u2193</a>
-          </div>
-        </div>
-        <div class="hero__glyph" aria-hidden="true">
-          ${['brass', 'sage', 'dusty-rose'].map((color) => `
-          <div class="hero__glyph-row">
-            <span class="hero__glyph-dot" style="background:var(--${color})"></span>
-            <div class="hero__glyph-bars">
-              <span class="hero__glyph-bar hero__glyph-bar--wide"></span>
-              <span class="hero__glyph-bar hero__glyph-bar--mid"></span>
-            </div>
-          </div>`).join('')}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderContribute() {
-  const repoUrl = state.siteRepo
-    || (state.config.owner && state.config.repo ? `https://github.com/${state.config.owner}/${state.config.repo}` : null);
-  return `
-    <section id="contribuer" class="contribute">
-      <div class="wrap">
-        <h2 class="admin__title">Contribuer</h2>
-        <p>Ce site est généré par un outil open source : une idée, un bug, une amélioration à proposer ?</p>
-        ${repoUrl
-          ? `<a class="btn" href="${escapeHtml(repoUrl)}" target="_blank" rel="noopener">Voir le dépôt sur GitHub \u2197</a>`
-          : '<p class="hint">Lien du dépôt non configuré (variable SITE_REPO absente du build).</p>'}
-      </div>
-    </section>
-  `;
-}
-
 function renderMessage() {
   const kind = state.message.kind;
   return `
     <div class="banner banner--${kind}" role="status" aria-live="polite">
       ${escapeHtml(state.message.text)}
     </div>
-  `;
-}
-
-function renderCatalog() {
-  if (!state.catalog.length) {
-    return `
-      <section id="projets" class="empty">
-        <p>Aucun projet catalogué pour l\u2019instant.</p>
-        ${!state.showAdmin ? '<a class="link-btn" href="#administration" data-action="open-admin-nav">Ouvrir l\u2019administration pour en ajouter un</a>' : ''}
-      </section>
-    `;
-  }
-  const sorted = [...state.catalog].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-  return `
-    <section id="projets" aria-label="Catalogue de projets">
-      <ol class="log">
-        ${sorted.map((p) => `
-          <li class="log-entry">
-            <span class="log-dot" aria-hidden="true"></span>
-            <div class="log-meta">
-              <span class="log-code">${shortCode(p.slug || p.title || '')}</span>
-              <time datetime="${escapeHtml(p.updatedAt || '')}">${formatDate(p.updatedAt)}</time>
-            </div>
-            <h2 class="log-title"><a href="/p/${encodeURIComponent(p.slug)}.html">${escapeHtml(p.title || p.slug)}</a></h2>
-            <p class="log-hook">${escapeHtml(p.hook || p.description || '')}</p>
-            ${p.tags && p.tags.length ? `<ul class="log-tags">${p.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
-          </li>
-        `).join('')}
-      </ol>
-    </section>
   `;
 }
 
@@ -434,7 +329,7 @@ function renderConfigForm() {
     .map(([id, p]) => `<option value="${id}" ${cfg.provider === id ? 'selected' : ''}>${p.label}</option>`)
     .join('');
   const modelOptions = state.availableModels
-    .map((m) => `<option value="${m}" ${cfg.model === m ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+    .map((m) => `<option value="${escapeHtml(m.id)}" ${cfg.model === m.id ? 'selected' : ''}>${escapeHtml(m.id)}${m.contextWindow ? ` (${Math.round(m.contextWindow / 1000)}k ctx)` : ''}</option>`)
     .join('');
 
   return `
@@ -548,12 +443,14 @@ async function handleSaveConfigSubmit(e) {
       : null;
   }
 
+  const selectedModelInfo = state.availableModels.find((m) => m.id === form.model.value);
   state.config = {
     owner: form.owner.value.trim(),
     repo: form.repo.value.trim(),
     provider: form.provider.value,
     apiKey: form.apiKey.value.trim(),
     model: form.model.value,
+    modelContextWindow: selectedModelInfo ? selectedModelInfo.contextWindow : state.config.modelContextWindow,
     cooldownHours: Number(form.cooldownHours.value) || 0,
   };
   saveConfig(state.config);
@@ -658,9 +555,21 @@ async function handleGenerateSubmit(e) {
       return;
     }
 
+    setMessage('Adaptation du README à la fenêtre de contexte du modèle…');
+    const contextWindow = state.config.modelContextWindow || DEFAULT_CONTEXT_WINDOW;
+    const callModelForCondense = (instruction, chunk) => generateContent(
+      state.config.provider, state.config.apiKey, state.config.model, instruction, chunk
+    );
+    const { text: fittedReadme, wasCondensed, passes, truncated } = await fitToContextWindow(
+      readmeFile.content, contextWindow, callModelForCondense
+    );
+    if (wasCondensed) {
+      setMessage(`README condensé en ${passes} passe(s) pour tenir dans la fenêtre de contexte (${contextWindow} tokens)${truncated ? ' — encore trop long, tronqué en dernier recours' : ''}…`);
+    }
+
     setMessage('Génération du contenu par l\u2019IA…');
     const { systemPrompt, userPrompt } = await buildBlogWritingPrompt(
-      readmeFile.content,
+      fittedReadme,
       `https://github.com/${targetOwner}/${targetRepo}`
     );
     const raw = await generateContent(
@@ -718,6 +627,7 @@ async function handleGenerateSubmit(e) {
 root.addEventListener('input', (e) => {
   const configForm = e.target.closest('[data-form="config"]');
   if (configForm && e.target.name !== 'token') {
+    const selectedModelInfo = state.availableModels.find((m) => m.id === configForm.model.value);
     state.config = {
       ...state.config,
       owner: configForm.owner.value,
@@ -725,6 +635,7 @@ root.addEventListener('input', (e) => {
       provider: configForm.provider.value,
       apiKey: configForm.apiKey.value,
       model: configForm.model.value,
+      modelContextWindow: selectedModelInfo ? selectedModelInfo.contextWindow : state.config.modelContextWindow,
       cooldownHours: Number(configForm.cooldownHours.value) || 0,
     };
     return;

@@ -574,10 +574,6 @@ h1, h2, h3 {
   border: none;
 }
 
-.project-media--svg {
-  margin: 1.75em 0;
-}
-
 .project-media-svg {
   display: flex;
   justify-content: center;
