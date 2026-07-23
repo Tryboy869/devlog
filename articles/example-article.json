@@ -1,0 +1,14 @@
+{
+  "slug": "example-article",
+  "title": "Comment fonctionne ce carnet — article d'exemple",
+  "hook": "Article de démonstration : explique le format attendu (Markdown, série optionnelle) avant ta première vraie rédaction.",
+  "description": "Article d'exemple DevLog — supprime ce fichier une fois ton premier vrai article rédigé.",
+  "body": "Ce fichier existe pour la même raison que `projects/example-project.json` : donner à `build.js` quelque chose à traiter au premier build, et te montrer à quoi ressemble une page d'article générée avant d'en écrire une vraie.\n\n## Différence avec un projet\n\nUn projet part d'un README existant ; un article part de tes notes, tapées directement dans le panneau d'administration. L'IA structure et développe, elle ne résume pas.\n\n## Séries\n\nSi tu remplis le champ \"Série\" en générant un article, il apparaît juste sous le titre (\"Nom de la série · partie X/Y\") — utile pour un enchaînement de plusieurs articles sur un même sujet, sans forcer un ordre de lecture strict comme le ferait un cours.\n\nUne fois ton premier vrai article généré depuis l'administration, supprime `articles/example-article.json`.",
+  "tags": ["exemple"],
+  "media": { "kind": "none" },
+  "series": null,
+  "seriesPart": null,
+  "seriesTotal": null,
+  "createdAt": "2026-07-16T00:00:00.000Z",
+  "updatedAt": "2026-07-16T00:00:00.000Z"
+}

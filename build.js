@@ -9,11 +9,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { marked } from 'marked';
 import { sanitizeGeneratedSvg } from './js/svg-sanitize.js';
-import { renderHeroSection, renderCatalogSection, renderContributeSection, escapeHtml } from './js/render-catalog.js';
+import { renderHeroSection, renderCatalogSection, renderArticlesSection, renderContributeSection, escapeHtml } from './js/render-catalog.js';
 
 const ROOT = process.cwd();
 const PROJECTS_DIR = path.join(ROOT, 'projects');
-const PAGES_DIR = path.join(ROOT, 'p');
+const ARTICLES_DIR = path.join(ROOT, 'articles');
+// Tout ce qui doit être publiquement servi va dans OUT_DIR (déclaré comme
+// outputDirectory dans vercel.json) — jamais la racine du dépôt, pour ne pas exposer
+// node_modules/, build.js, package.json, .github/ etc. une fois le build terminé.
+const OUT_DIR = path.join(ROOT, 'public');
+const PAGES_DIR = path.join(OUT_DIR, 'p');
+const ARTICLE_PAGES_DIR = path.join(OUT_DIR, 'a');
 
 // SITE_URL et SITE_REPO se déduisent automatiquement des variables système que Vercel
 // fournit déjà tout seul (aucune saisie manuelle requise) : il suffit d'avoir coché
@@ -66,6 +72,22 @@ function loadProjects() {
       }
     })
     .filter((p) => p && p.slug);
+}
+
+function loadArticles() {
+  if (!fs.existsSync(ARTICLES_DIR)) return [];
+  return fs.readdirSync(ARTICLES_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => {
+      const raw = fs.readFileSync(path.join(ARTICLES_DIR, f), 'utf8');
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        console.warn(`[build] articles/${f} ignoré (JSON invalide) : ${e.message}`);
+        return null;
+      }
+    })
+    .filter((a) => a && a.slug);
 }
 
 function renderMedia(media) {
@@ -180,7 +202,74 @@ function renderProjectPage(project) {
 `;
 }
 
-function buildCatalogJson(projects) {
+function renderArticlePage(article) {
+  const title = escapeHtml(article.title || article.slug);
+  const description = escapeHtml(article.description || article.hook || '');
+  const url = `${SITE_URL}/a/${article.slug}.html`;
+  const bodyHtml = marked.parse(String(article.body || ''));
+  const mediaHtml = renderMedia(article.media);
+  const ogImage = article.media && article.media.kind === 'image' ? article.media.url : null;
+
+  const ldJson = jsonLdSafe({
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title || article.slug,
+    description: article.description || article.hook || '',
+    dateCreated: article.createdAt,
+    dateModified: article.updatedAt,
+    url,
+    keywords: (article.tags || []).join(', '),
+    ...(ogImage ? { image: ogImage } : {}),
+  });
+
+  const seriesLine = article.series
+    ? `<p class="project-series">${escapeHtml(article.series)}${article.seriesPart ? ` \u00b7 partie ${escapeHtml(String(article.seriesPart))}${article.seriesTotal ? `/${escapeHtml(String(article.seriesTotal))}` : ''}` : ''}</p>`
+    : '';
+
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} — DevLog</title>
+  <meta name="description" content="${description}">
+  <link rel="canonical" href="${url}">
+  <meta name="theme-color" content="#151A21">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:url" content="${url}">
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ''}
+  <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script type="application/ld+json">${ldJson}</script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" href="/">devlog<span class="brand__dot">.</span></a>
+    </div>
+  </header>
+  <main class="wrap project-page">
+    <a class="project-back" href="/#articles">&larr; retour aux articles</a>
+    <h1 class="project-title">${title}</h1>
+    ${seriesLine}
+    ${article.hook ? `<p class="project-hook">${escapeHtml(article.hook)}</p>` : ''}
+    ${mediaHtml}
+    <div class="project-body">${bodyHtml}</div>
+    ${article.tags && article.tags.length ? `<ul class="project-tags">${article.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
+    <p class="project-meta">Mis à jour le ${escapeHtml((article.updatedAt || '').slice(0, 10))}</p>
+  </main>
+</body>
+</html>
+`;
+}
+
+function buildCatalogJson(projects, articles) {
   return {
     siteRepo: SITE_REPO ? `https://github.com/${SITE_REPO.replace(/^https?:\/\/github\.com\//i, '')}` : null,
     projects: projects.map((p) => ({
@@ -192,13 +281,25 @@ function buildCatalogJson(projects) {
       updatedAt: p.updatedAt,
       cover: githubOgImageUrl(p.repoUrl),
     })),
+    articles: articles.map((a) => ({
+      slug: a.slug,
+      title: a.title,
+      hook: a.hook,
+      description: a.description,
+      tags: a.tags || [],
+      series: a.series || null,
+      seriesPart: a.seriesPart || null,
+      seriesTotal: a.seriesTotal || null,
+      updatedAt: a.updatedAt,
+    })),
   };
 }
 
-function buildSitemap(projects) {
+function buildSitemap(projects, articles) {
   const urls = [
     `  <url>\n    <loc>${SITE_URL}/</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>`,
     ...projects.map((p) => `  <url>\n    <loc>${SITE_URL}/p/${p.slug}.html</loc>\n    <lastmod>${escapeHtml((p.updatedAt || '').slice(0, 10))}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`),
+    ...articles.map((a) => `  <url>\n    <loc>${SITE_URL}/a/${a.slug}.html</loc>\n    <lastmod>${escapeHtml((a.updatedAt || '').slice(0, 10))}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 }
@@ -217,11 +318,11 @@ function groupByDominantTag(projects) {
   return groups;
 }
 
-function buildLlmsTxt(projects) {
+function buildLlmsTxt(projects, articles) {
   const lines = [
     '# DevLog',
     '',
-    '> Catalogue de projets développeur, généré à partir de leurs README. Utile pour retrouver ce que fait chaque projet, sa stack et son dépôt source.',
+    '> Catalogue de projets développeur, généré à partir de leurs README, et articles techniques. Utile pour retrouver ce que fait chaque projet, sa stack et son dépôt source.',
     '',
   ];
   const groups = groupByDominantTag(projects);
@@ -232,6 +333,13 @@ function buildLlmsTxt(projects) {
     }
     lines.push('');
   }
+  if (articles.length) {
+    lines.push('## Articles', '');
+    for (const a of articles) {
+      lines.push(`- [${a.title}](${SITE_URL}/a/${a.slug}.html): ${a.description || a.hook || ''}`);
+    }
+    lines.push('');
+  }
   return lines.join('\n');
 }
 
@@ -239,7 +347,7 @@ function buildLlmsTxt(projects) {
 // rendus dedans (et non plus laissés au seul JavaScript client) : sans ça, tout visiteur
 // ou robot qui n'exécute pas de JS ne voit que le message de chargement, jamais le vrai
 // contenu — invisible pour les aperçus de liens et une partie des crawlers.
-function buildIndexHtml(catalogEntries, siteRepoUrl) {
+function buildIndexHtml(catalogEntries, articleEntries, siteRepoUrl) {
   const templatePath = path.join(ROOT, 'index.template.html');
   if (!fs.existsSync(templatePath)) {
     console.warn('[build] index.template.html introuvable — index.html non régénéré.');
@@ -251,6 +359,7 @@ function buildIndexHtml(catalogEntries, siteRepoUrl) {
     renderHeroSection(catalogEntries),
     '<div class="wrap">',
     renderCatalogSection(catalogEntries, true),
+    articleEntries.length ? renderArticlesSection(articleEntries) : '',
     '</div>',
     renderContributeSection(siteRepoUrl),
   ].join('\n');
@@ -277,25 +386,42 @@ function buildIndexHtml(catalogEntries, siteRepoUrl) {
     .replace('<!--OG_TAGS-->', ogTags)
     .replace('<!--APP_SHELL-->', shell);
 
-  fs.writeFileSync(path.join(ROOT, 'index.html'), finalHtml, 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'index.html'), finalHtml, 'utf8');
 }
 
 function main() {
   const projects = loadProjects();
+  const articles = loadArticles();
+
+  // OUT_DIR est entièrement généré à chaque build : on le repart de zéro pour ne
+  // jamais laisser traîner une page dont le projet source aurait été supprimé.
+  fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(PAGES_DIR, { recursive: true });
+  fs.mkdirSync(ARTICLE_PAGES_DIR, { recursive: true });
+
+  // css/, js/ et skills/ sont nécessaires au navigateur à l'exécution (import ES modules,
+  // fetch('/skills/...')) : copiés tels quels dans le dossier public, jamais servis depuis
+  // la racine du dépôt (qui contiendrait aussi node_modules/, build.js, package.json...).
+  for (const dir of ['css', 'js', 'skills']) {
+    const src = path.join(ROOT, dir);
+    if (fs.existsSync(src)) fs.cpSync(src, path.join(OUT_DIR, dir), { recursive: true });
+  }
 
   for (const project of projects) {
     fs.writeFileSync(path.join(PAGES_DIR, `${project.slug}.html`), renderProjectPage(project), 'utf8');
   }
+  for (const article of articles) {
+    fs.writeFileSync(path.join(ARTICLE_PAGES_DIR, `${article.slug}.html`), renderArticlePage(article), 'utf8');
+  }
 
-  const catalog = buildCatalogJson(projects);
-  fs.writeFileSync(path.join(ROOT, 'catalog.json'), JSON.stringify(catalog, null, 2), 'utf8');
-  fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), buildSitemap(projects), 'utf8');
-  fs.writeFileSync(path.join(ROOT, 'robots.txt'), buildRobots(), 'utf8');
-  fs.writeFileSync(path.join(ROOT, 'llms.txt'), buildLlmsTxt(projects), 'utf8');
-  buildIndexHtml(catalog.projects, catalog.siteRepo);
+  const catalog = buildCatalogJson(projects, articles);
+  fs.writeFileSync(path.join(OUT_DIR, 'catalog.json'), JSON.stringify(catalog, null, 2), 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), buildSitemap(projects, articles), 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), buildRobots(), 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), buildLlmsTxt(projects, articles), 'utf8');
+  buildIndexHtml(catalog.projects, catalog.articles, catalog.siteRepo);
 
-  console.log(`[build] ${projects.length} projet(s) — index.html, pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
+  console.log(`[build] ${projects.length} projet(s), ${articles.length} article(s) — index.html, pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
 }
 
 main();

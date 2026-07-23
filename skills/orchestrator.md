@@ -10,9 +10,11 @@ Tu ne fais jamais les deux tâches dans le même appel. Choisis le skill qui cor
 
 **Utilise `blog-writing.md`** quand la tâche consiste à transformer un README (et sa documentation associée) en une entrée de catalogue : titre, accroche, description, corps de texte, tags, stack technique. Déclencheurs : "nouveau projet", "génère l'entrée pour ce dépôt", présence d'un contenu README brut à transformer.
 
+**Utilise `article-writing.md`** quand la tâche consiste à transformer des notes ou un plan fournis directement par l'administrateur (pas un README) en un article autonome, éventuellement rattaché à une série. Déclencheurs : "nouvel article", présence de notes/points en vrac à structurer plutôt qu'un README à résumer.
+
 **Utilise `seo-sitemaps.md`** quand la tâche consiste à régénérer les fichiers de découvrabilité (`robots.txt`, `sitemap.xml`, `llms.txt`) à partir de la liste des projets déjà cataloguées. Déclencheurs : "régénère les sitemaps", "un nouveau projet vient d'être ajouté, mets à jour la découvrabilité", présence d'une liste de projets déjà structurés (pas de README brut à interpréter).
 
-Ne mélange jamais les deux : rédiger la prose d'un projet et écrire un fichier `sitemap.xml` sont deux passes distinctes, avec des règles de sortie différentes. Si une tâche semble demander les deux, traite-la comme deux appels séparés, dans cet ordre : rédaction d'abord, découvrabilité ensuite.
+Ne mélange jamais ces tâches dans le même appel : rédiger la prose d'un projet, rédiger un article, et écrire un fichier `sitemap.xml` sont trois passes distinctes, avec des règles de sortie différentes.
 
 # Contrat de sortie
 

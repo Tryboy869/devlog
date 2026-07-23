@@ -95,6 +95,31 @@ export function renderCatalogSection(catalog, showAdminLink) {
   `;
 }
 
+export function renderArticlesSection(articles) {
+  if (!articles.length) return '';
+  const sorted = [...articles].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  return `
+    <section id="articles" aria-label="Articles">
+      <h2 class="section-title">Articles</h2>
+      <ol class="log">
+        ${sorted.map((a) => `
+          <li class="log-entry">
+            <span class="log-dot" aria-hidden="true"></span>
+            <div class="log-meta">
+              <span class="log-code">${shortCode(a.slug || a.title || '')}</span>
+              <time datetime="${escapeHtml(a.updatedAt || '')}">${formatDate(a.updatedAt)}</time>
+              ${a.series ? `<span class="log-series">${escapeHtml(a.series)}${a.seriesPart ? ` \u00b7 partie ${a.seriesPart}${a.seriesTotal ? `/${a.seriesTotal}` : ''}` : ''}</span>` : ''}
+            </div>
+            <h3 class="log-title"><a href="/a/${encodeURIComponent(a.slug)}.html">${escapeHtml(a.title || a.slug)}</a></h3>
+            <p class="log-hook">${escapeHtml(a.description || '')}</p>
+            ${a.tags && a.tags.length ? `<ul class="log-tags">${a.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
+          </li>
+        `).join('')}
+      </ol>
+    </section>
+  `;
+}
+
 export function renderContributeSection(repoUrl) {
   return `
     <section id="contribuer" class="contribute">

@@ -7,6 +7,7 @@ import { extractMediaCandidates, formatMediaCandidatesForPrompt } from './media.
 const SKILL_PATHS = {
   orchestrator: '/skills/orchestrator.md',
   blogWriting: '/skills/blog-writing.md',
+  articleWriting: '/skills/article-writing.md',
 };
 
 const cache = {};
@@ -38,6 +39,23 @@ export async function buildBlogWritingPrompt(readmeContent, repoUrl) {
     '',
     'Candidats visuels détectés automatiquement (voir section "Détection de visuel") :',
     formatMediaCandidatesForPrompt(mediaCandidates),
+  ].join('\n');
+  return { systemPrompt, userPrompt };
+}
+
+export async function buildArticleWritingPrompt(title, notes, series) {
+  const [orchestrator, articleWriting] = await Promise.all([
+    loadSkill('orchestrator'),
+    loadSkill('articleWriting'),
+  ]);
+  const systemPrompt = `${orchestrator}\n\n---\n\n${articleWriting}`;
+  const userPrompt = [
+    `Titre proposé par l'admin : ${title}`,
+    series && series.name ? `Série : "${series.name}", partie ${series.part || '?'}${series.total ? ` sur ${series.total}` : ''}` : 'Pas de série.',
+    '',
+    "Notes / plan fournis par l'admin à structurer et développer :",
+    '',
+    notes,
   ].join('\n');
   return { systemPrompt, userPrompt };
 }

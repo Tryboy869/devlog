@@ -6,10 +6,10 @@
 
 import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope, setActionsSecret, setActionsVariable } from './github.js';
 import { PROVIDERS, fetchModels, generateContent, parseJsonResponse } from './providers.js';
-import { buildBlogWritingPrompt } from './skills.js';
+import { buildBlogWritingPrompt, buildArticleWritingPrompt } from './skills.js';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.esm.js';
 import { fitToContextWindow, DEFAULT_CONTEXT_WINDOW } from './context-budget.js';
-import { escapeHtml, shortCode, formatDate, renderHeroSection, renderCatalogSection, renderContributeSection } from './render-catalog.js';
+import { escapeHtml, shortCode, formatDate, renderHeroSection, renderCatalogSection, renderArticlesSection, renderContributeSection } from './render-catalog.js';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -112,6 +112,7 @@ const state = {
   config: loadConfig(),
   token: getToken(),
   catalog: [],
+  articles: [],
   siteRepo: null, // URL du dépôt du site lui-même, pour la section "Contribuer" — vient de catalog.json
   navOpen: false,
   showAdmin: false,
@@ -126,6 +127,13 @@ const state = {
   automationCustomCron: '',
   maxPerRun: 5,
   catalogPat: '',
+  articleBusy: false,
+  draftArticleTitle: '',
+  draftArticleNotes: '',
+  draftArticleSeries: '',
+  draftArticlePart: '',
+  draftArticleTotal: '',
+  lastGeneratedArticle: null,
 };
 
 function setMessage(text, kind = 'info') {
@@ -189,10 +197,12 @@ async function init() {
       state.catalog = data;
     } else if (data) {
       state.catalog = Array.isArray(data.projects) ? data.projects : [];
+      state.articles = Array.isArray(data.articles) ? data.articles : [];
       state.siteRepo = data.siteRepo || null;
     }
   } catch {
     state.catalog = [];
+    state.articles = [];
   }
   render();
 }
@@ -207,6 +217,7 @@ function render() {
       ${renderHeroSection(state.catalog)}
       <div class="wrap">
         ${renderCatalogSection(state.catalog, !state.showAdmin)}
+        ${state.articles.length ? renderArticlesSection(state.articles) : ''}
       </div>
       ${renderContributeSection(state.siteRepo || (state.config.owner && state.config.repo ? `https://github.com/${state.config.owner}/${state.config.repo}` : null))}
       ${state.showAdmin ? `<div class="wrap">${renderAdmin()}</div>` : ''}
@@ -233,6 +244,7 @@ function renderNav() {
     <nav class="nav-panel" aria-label="Navigation principale">
       <a href="#accueil" data-action="close-nav">Accueil</a>
       <a href="#projets" data-action="close-nav">Projets</a>
+      <a href="#articles" data-action="close-nav">Articles</a>
       <a href="#contribuer" data-action="close-nav">Contribuer</a>
       <a href="#administration" data-action="open-admin-nav">Administration</a>
     </nav>
@@ -259,8 +271,44 @@ function renderAdmin() {
       ${complete
         ? renderGenerateForm()
         : `<p class="hint">Il manque encore : ${missing.map(escapeHtml).join(', ')}.</p>`}
+      ${complete ? renderArticleForm() : ''}
       ${complete ? renderAutomation() : ''}
-      ${state.lastGenerated ? renderPreview(state.lastGenerated) : ''}
+      ${state.lastGenerated ? renderPreview(state.lastGenerated, 'Aperçu — dernier projet généré', 'close-preview') : ''}
+      ${state.lastGeneratedArticle ? renderPreview(state.lastGeneratedArticle, 'Aperçu — dernier article généré', 'close-article-preview') : ''}
+    </section>
+  `;
+}
+
+function renderArticleForm() {
+  return `
+    <section class="article-form" aria-label="Nouvel article">
+      <h3 class="admin__title">Nouvel article</h3>
+      <form data-form="article" class="form">
+        <label class="field">
+          <span>Titre</span>
+          <input type="text" name="articleTitle" placeholder="ex. Pourquoi on a choisi l'API Contents plutôt que git complet" value="${escapeHtml(state.draftArticleTitle)}" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Notes / plan</span>
+          <textarea name="articleNotes" rows="6" placeholder="Points en vrac, brouillon, plan sommaire — l'IA structure et développe à partir de ça.">${escapeHtml(state.draftArticleNotes)}</textarea>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Série (optionnel)</span>
+            <input type="text" name="articleSeries" placeholder="ex. Construire DevLog" value="${escapeHtml(state.draftArticleSeries)}" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Partie / total (optionnel)</span>
+            <div class="field-inline">
+              <input type="number" name="articlePart" min="1" step="1" placeholder="1" value="${escapeHtml(state.draftArticlePart)}">
+              <input type="number" name="articleTotal" min="1" step="1" placeholder="sur combien ?" value="${escapeHtml(state.draftArticleTotal)}">
+            </div>
+          </label>
+        </div>
+        <div class="form__actions">
+          <button type="submit" class="btn" ${state.articleBusy ? 'disabled' : ''}>${state.articleBusy ? 'Génération en cours…' : 'Générer l\u2019article'}</button>
+        </div>
+      </form>
     </section>
   `;
 }
@@ -306,19 +354,19 @@ function renderAutomation() {
   `;
 }
 
-function renderPreview(project) {
+function renderPreview(entry, title = 'Aperçu — dernière génération', closeAction = 'close-preview') {
   return `
-    <section class="preview" aria-label="Aperçu du dernier projet généré">
+    <section class="preview" aria-label="${escapeHtml(title)}">
       <div class="preview__head">
-        <h3 class="admin__title">Aperçu — dernière génération</h3>
-        <button type="button" class="link-btn" data-action="close-preview">Fermer</button>
+        <h3 class="admin__title">${escapeHtml(title)}</h3>
+        <button type="button" class="link-btn" data-action="${closeAction}">Fermer</button>
       </div>
-      <h1 class="project-title">${escapeHtml(project.title)}</h1>
-      ${project.hook ? `<p class="project-hook">${escapeHtml(project.hook)}</p>` : ''}
-      ${renderMediaHtml(project.media)}
-      <div class="project-body">${renderBodyHtml(project.body)}</div>
-      ${project.tags && project.tags.length ? `<ul class="project-tags">${project.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
-      ${project.stack && project.stack.length ? `<ul class="project-stack">${project.stack.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
+      <h1 class="project-title">${escapeHtml(entry.title)}</h1>
+      ${entry.hook ? `<p class="project-hook">${escapeHtml(entry.hook)}</p>` : ''}
+      ${renderMediaHtml(entry.media)}
+      <div class="project-body">${renderBodyHtml(entry.body)}</div>
+      ${entry.tags && entry.tags.length ? `<ul class="project-tags">${entry.tags.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
+      ${entry.stack && entry.stack.length ? `<ul class="project-stack">${entry.stack.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
     </section>
   `;
 }
@@ -619,6 +667,81 @@ async function handleGenerateSubmit(e) {
   }
 }
 
+async function handleGenerateArticleSubmit(e) {
+  e.preventDefault();
+  if (state.articleBusy) return;
+  const form = e.target;
+  const title = form.articleTitle.value.trim();
+  const notes = form.articleNotes.value.trim();
+  const seriesName = form.articleSeries.value.trim();
+  const seriesPart = form.articlePart.value.trim();
+  const seriesTotal = form.articleTotal.value.trim();
+
+  if (!title || !notes) {
+    setMessage('Un titre et des notes sont nécessaires pour générer un article.', 'error');
+    return;
+  }
+
+  state.draftArticleTitle = '';
+  state.draftArticleNotes = '';
+  state.draftArticleSeries = '';
+  state.draftArticlePart = '';
+  state.draftArticleTotal = '';
+  state.articleBusy = true;
+  render();
+
+  try {
+    setMessage('Génération de l\u2019article par l\u2019IA…');
+    const { systemPrompt, userPrompt } = await buildArticleWritingPrompt(
+      title, notes, seriesName ? { name: seriesName, part: seriesPart, total: seriesTotal } : null
+    );
+    const raw = await generateContent(
+      state.config.provider, state.config.apiKey, state.config.model, systemPrompt, userPrompt
+    );
+    const parsedContent = parseJsonResponse(raw);
+
+    const slug = slugify(parsedContent.title || title);
+    const now = new Date().toISOString();
+    const existingArticleFile = await getFile(state.config.owner, state.config.repo, `articles/${slug}.json`, state.token).catch(() => null);
+    let createdAt = now;
+    if (existingArticleFile && !Array.isArray(existingArticleFile)) {
+      try { createdAt = JSON.parse(existingArticleFile.content).createdAt || now; } catch { /* garde now */ }
+    }
+
+    const article = {
+      slug,
+      title: parsedContent.title || title,
+      hook: parsedContent.hook || '',
+      description: parsedContent.description || '',
+      body: parsedContent.body || '',
+      tags: Array.isArray(parsedContent.tags) ? parsedContent.tags : [],
+      media: parsedContent.media && typeof parsedContent.media === 'object' ? parsedContent.media : { kind: 'none' },
+      series: seriesName || null,
+      seriesPart: seriesPart ? Number(seriesPart) : null,
+      seriesTotal: seriesTotal ? Number(seriesTotal) : null,
+      createdAt,
+      updatedAt: now,
+    };
+
+    setMessage('Écriture sur GitHub…');
+    await putFile(
+      state.config.owner, state.config.repo, `articles/${slug}.json`,
+      JSON.stringify(article, null, 2),
+      `feat: ajoute/actualise l'article ${slug}`,
+      state.token
+    );
+
+    state.articles = state.articles.filter((a) => a.slug !== slug).concat(article);
+    state.lastGeneratedArticle = article;
+    setMessage(`"${article.title}" écrit dans /articles/${slug}.json. Le prochain build régénérera le site.`, 'success');
+  } catch (err) {
+    setMessage(err.message || String(err), 'error');
+  } finally {
+    state.articleBusy = false;
+    render();
+  }
+}
+
 // ---------- Délégation d'événements (survit aux re-rendus) ----------
 
 // Synchronise en continu les champs non encore soumis vers l'état, pour qu'un re-rendu
@@ -643,6 +766,15 @@ root.addEventListener('input', (e) => {
   const generateForm = e.target.closest('[data-form="generate"]');
   if (generateForm) {
     state.draftTarget = generateForm.target.value;
+    return;
+  }
+  const articleForm = e.target.closest('[data-form="article"]');
+  if (articleForm) {
+    state.draftArticleTitle = articleForm.articleTitle.value;
+    state.draftArticleNotes = articleForm.articleNotes.value;
+    state.draftArticleSeries = articleForm.articleSeries.value;
+    state.draftArticlePart = articleForm.articlePart.value;
+    state.draftArticleTotal = articleForm.articleTotal.value;
     return;
   }
   const automationForm = e.target.closest('[data-form="automation"]');
@@ -678,6 +810,9 @@ root.addEventListener('click', (e) => {
   } else if (action === 'close-preview') {
     state.lastGenerated = null;
     render();
+  } else if (action === 'close-article-preview') {
+    state.lastGeneratedArticle = null;
+    render();
   }
 });
 
@@ -685,6 +820,7 @@ root.addEventListener('submit', (e) => {
   const formType = e.target.dataset && e.target.dataset.form;
   if (formType === 'config') handleSaveConfigSubmit(e);
   if (formType === 'generate') handleGenerateSubmit(e);
+  if (formType === 'article') handleGenerateArticleSubmit(e);
   if (formType === 'automation') handleActivateAutomation(e);
 });
 

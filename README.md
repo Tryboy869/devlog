@@ -7,7 +7,7 @@ Le site a trois sections : **Accueil** (présentation), **Projets** (le catalogu
 ## Démarrage
 
 1. **Fork** ce dépôt.
-2. Sur [vercel.com](https://vercel.com), importe ton fork. Framework preset : *Other*. Vercel détecte automatiquement `vercel.json` (build `npm run build`, dossier de sortie `.`).
+2. Sur [vercel.com](https://vercel.com), importe ton fork. Framework preset : *Other*. Vercel détecte automatiquement `vercel.json` (build `npm run build`, dossier de sortie `public/` — généré entièrement à chaque build, jamais commité).
 3. Dans les réglages du projet Vercel (Settings → Environment Variables), coche **"Enable access to System Environment Variables"** — une seule case à cocher, rien à taper. `SITE_URL` et `SITE_REPO` s'en déduisent automatiquement (URL de production et dépôt Git déjà connus de Vercel). Tu peux quand même forcer `SITE_URL`/`SITE_REPO` manuellement si besoin (domaine personnalisé, etc.), mais ce n'est plus nécessaire par défaut.
 4. Déploie. Le premier build génère `p/example-project.html`, `catalog.json`, `sitemap.xml`, `robots.txt` et `llms.txt` à partir de l'exemple fourni dans `projects/`.
 5. Ouvre le site déployé, menu ☰ → **Administration**, renseigne :
@@ -32,6 +32,12 @@ Pour l'activer, **tout se passe depuis le panneau Administration** : une fois le
 
 Aucune page GitHub à visiter. Un lancement manuel reste possible depuis l'onglet **Actions → Auto-catalogue → Run workflow** si tu ne veux pas attendre le prochain passage planifié.
 
+## Articles
+
+En plus des projets (générés depuis un README), le panneau admin permet d'écrire des **articles** : tu donnes un titre et des notes/un plan en vrac, l'IA structure et développe — pas de dépôt source, pas de README à résumer. Volontairement en **blog plat** (comme les projets, triés par date) plutôt qu'en cours ordonné à suivre dans un ordre précis : c'est la façon dont les devs consultent la documentation technique (une recherche Google → un article précis), et aucun grand blog technique (Stripe, Vercel) ne structure ses articles en modules séquentiels.
+
+Un champ optionnel **série** (nom + partie/total) existe pour les cas où plusieurs articles s'enchaînent naturellement — affiché comme repère ("Nom de la série · partie 2/4"), sans forcer un ordre de lecture. Contrairement aux projets, les articles ne sont **pas** générés automatiquement par le cron : ils partent des notes de l'admin, pas d'un dépôt à découvrir, donc il n'y a rien à automatiser côté planification.
+
 ## Visuel de chaque projet
 
 Trois niveaux, du plus automatique au plus spécifique :
@@ -53,7 +59,7 @@ Les modèles open source hébergés sur Groq n'ont pas tous une grande fenêtre 
 ## Ce qui vit où
 
 - **Dans le navigateur du visiteur** (`js/*.js`, à la visite) : configuration, lecture/écriture GitHub, appel au fournisseur IA. Rien de tout ça ne tourne sur un serveur.
-- **Au build Vercel** (`build.js`, à chaque push) : lecture de `projects/*.json`, génération de `index.html` (à partir de `index.template.html`, avec le hero/catalogue/contribuer déjà rendus dedans — sans ça, un visiteur ou robot qui n'exécute pas de JS ne verrait qu'un message de chargement), des pages statiques `p/*.html`, de `catalog.json`, `sitemap.xml`, `robots.txt` et `llms.txt`.
+- **Au build Vercel** (`build.js`, à chaque push) : lecture de `projects/*.json` et `articles/*.json`, génération de tout ce qui est publiquement servi dans `public/` (jamais à la racine du dépôt, pour ne pas exposer `node_modules/`, `build.js` ou `package.json`) — `index.html` (à partir de `index.template.html`, avec le hero/catalogue/articles/contribuer déjà rendus dedans, sans quoi un visiteur ou robot qui n'exécute pas de JS ne verrait qu'un message de chargement), les pages statiques `p/*.html` et `a/*.html`, `catalog.json`, `sitemap.xml`, `robots.txt`, `llms.txt`, ainsi qu'une copie de `css/`, `js/` et `skills/` (nécessaires au navigateur à l'exécution). `public/` est entièrement régénéré à chaque build et n'est jamais commité (voir `.gitignore`).
 - **Dans GitHub Actions** (`.github/scripts/auto-catalog.mjs`, sur cron) : découverte des dépôts, lecture des README, appel IA, écriture de `projects/*.json` — puis commit/push géré par le workflow.
 
 `js/render-catalog.js` (rendu du hero et du catalogue) et `js/context-budget.js` (gestion de la fenêtre de contexte) sont partagés tels quels entre le navigateur et le build/l'automatisation — une seule source de vérité, pas de logique dupliquée qui pourrait diverger.
@@ -72,3 +78,4 @@ Voir `skills/orchestrator.md`, `skills/blog-writing.md` et `skills/seo-sitemaps.
 - Le chiffrement scellé utilisé pour pousser les secrets Actions a été vérifié de bout en bout : chiffré avec le code réel de `github.js` (chargé comme de vraies balises `<script>`), puis déchiffré avec une bibliothèque indépendante (PyNaCl/libsodium) pour confirmer que le résultat est authentiquement déchiffrable — pas seulement "a l'air correct".
 - Les appels réels à `api.github.com`, Groq et OpenRouter avec de vrais identifiants n'ont pas pu être testés en conditions réelles dans l'environnement où ce projet a été construit. La forme des requêtes suit la documentation de chaque fournisseur, mais teste le flux complet avec tes propres identifiants avant de t'y fier pour un vrai dépôt.
 - Groq déprécie parfois des modèles sans préavis long : si `Récupérer les modèles` renvoie une erreur, vérifie d'abord que le modèle choisi est toujours actif.
+- Deux correctifs ont été trouvés en vérifiant le site réellement déployé (pas seulement en simulation locale) : une séquence d'échappement JS restée littérale dans le message `<noscript>` (`\u2019` au lieu d'une vraie apostrophe — une erreur qui ne peut arriver que dans du HTML statique, jamais dans une chaîne JS), et `outputDirectory` qui pointait sur la racine du dépôt au lieu de `public/`, exposant `node_modules/` et le code source dans le déploiement. Les deux sont corrigés dans cette version ; si tu avais déjà déployé une version antérieure, un nouveau push depuis ce zip les résout.

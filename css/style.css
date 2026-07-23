@@ -377,6 +377,28 @@ h1, h2, h3 {
   font-family: var(--font-mono);
 }
 
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 3.5rem 0 0;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.log-series {
+  color: var(--brass);
+}
+
+.project-series {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--brass);
+  margin: -0.5em 0 1.5em;
+}
+
 /* ---------- Administration ---------- */
 
 .admin {
@@ -415,7 +437,8 @@ h1, h2, h3 {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   background: var(--panel-raised);
   border: 1px solid var(--line);
@@ -424,6 +447,11 @@ h1, h2, h3 {
   color: var(--paper);
   font-family: var(--font-mono);
   font-size: 0.9rem;
+}
+
+.field textarea {
+  resize: vertical;
+  line-height: 1.5;
 }
 
 .field__hint {
@@ -495,6 +523,12 @@ h1, h2, h3 {
 }
 
 .automation {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--line);
+}
+
+.article-form {
   margin-top: 2rem;
   padding-top: 1.5rem;
   border-top: 1px dashed var(--line);
@@ -572,6 +606,10 @@ h1, h2, h3 {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+.project-media--svg {
+  margin: 1.75em 0;
 }
 
 .project-media-svg {
