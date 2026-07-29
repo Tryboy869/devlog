@@ -21,7 +21,7 @@ Si l'admin indique que cet article fait partie d'une série (nom + numéro de pa
 
 ## Visuel
 
-Si l'admin a fourni une URL d'image ou de vidéo YouTube directement, elle est déjà dans le champ `media` du contrat de sortie — reprends-la telle quelle avec une légende pertinente. Sinon, même règle que pour les projets : génère un petit SVG animé abstrait (voir les contraintes strictes dans `blog-writing.md`, section "Détection de visuel" — mêmes règles ici, notamment le bloc `<style>` avec `prefers-reduced-motion`).
+Si l'admin a fourni une URL d'image ou de vidéo YouTube directement, elle est déjà dans le champ `media` du contrat de sortie — reprends-la telle quelle avec une légende pertinente. Sinon, même règle que pour les projets : choisis un motif géométrique abstrait (voir `blog-writing.md`, section "Détection de visuel" — `pattern` + `colors`, jamais de balisage SVG écrit à la main).
 
 ## Interdits explicites
 
@@ -42,6 +42,6 @@ Réponds uniquement avec cet objet JSON, sans texte autour, sans balises de code
   "description": "",
   "body": "",
   "tags": [],
-  "media": { "kind": "image|youtube|generated-svg|none", "url": "", "youtubeId": "", "svg": "", "caption": "" }
+  "media": { "kind": "image|youtube|generated-svg|none", "url": "", "youtubeId": "", "pattern": "", "colors": [], "caption": "" }
 }
 ```

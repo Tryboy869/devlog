@@ -44,7 +44,7 @@ Trois niveaux, du plus automatique au plus spécifique :
 
 1. **Couverture** — chaque page de projet affiche automatiquement l'image sociale GitHub du dépôt source (`opengraph.githubassets.com`, générée par GitHub lui-même, sans rien à configurer).
 2. **Média détecté** — avant d'appeler l'IA, le README est scanné pour des images/GIFs/vidéos YouTube pertinents (les badges de statut type shields.io sont exclus automatiquement). Si quelque chose de pertinent existe, l'IA choisit le meilleur et l'embarque dans la page (image, ou vidéo YouTube en iframe).
-3. **SVG généré** — si le README n'a vraiment aucun visuel exploitable, l'IA génère un petit motif SVG animé (abstrait, en rapport avec les tags/la stack) plutôt que de laisser la page sans aucun signal visuel. Ce SVG passe par un nettoyage strict (balises `<script>`, attributs `on*`, `@import`, `href` en `javascript:`/`data:` retirés) avant d'être affiché, aussi bien côté build que côté aperçu navigateur.
+3. **Motif généré** — si le README n'a vraiment aucun visuel exploitable, l'IA choisit un motif géométrique abstrait (pulsation de points, barres, grille) et jusqu'à 3 couleurs dans une liste fermée ; le balisage SVG lui-même est produit par du code déterministe (`js/svg-patterns.js`), jamais écrit par le modèle — ça élimine le risque qu'un petit modèle échoue à échapper correctement un balisage complet à l'intérieur d'une chaîne JSON. Les entrées générées avant ce changement (avec un SVG brut fourni par le modèle) continuent de s'afficher normalement, nettoyées par le même filtre qu'avant.
 
 Le corps (`body`) de chaque entrée est du **Markdown** (titres, blocs de code, listes, gras), rendu par [marked](https://github.com/markedjs/marked) des deux côtés — build et aperçu. Le skill `blog-writing.md` impose qu'un extrait de code du README apparaisse dans une section "Comment ça marche" quand la source en fournit un : l'objectif est une vraie profondeur technique, pas un résumé marketing.
 
@@ -55,6 +55,8 @@ Les modèles open source hébergés sur Groq n'ont pas tous une grande fenêtre 
 ## Dépannage
 
 **Le cron ne semble jamais se déclencher** — comportement documenté de GitHub, pas un bug : après tout changement de planification, GitHub peut mettre 15 minutes à plus d'une heure à le "reconnaître", et le premier passage n'a lieu qu'au prochain horaire programmé après cette reconnaissance. Pour tester sans attendre : onglet **Actions → Auto-catalogue → Run workflow** (déclenchement manuel, indépendant du cron). Si ça ne produit rien non plus, c'est un vrai bug (secret/variable manquant) — vérifie les logs de ce run.
+
+**"Le modèle n'a pas renvoyé un JSON exploitable"** — trois choses corrigent ça en même temps : une vraie limite de tokens (`max_tokens`) est maintenant fixée sur chaque appel pour éviter qu'une réponse trop longue soit coupée en plein milieu du JSON ; l'extraction du JSON tolère désormais du texte autour (prose avant/après, avec ou sans barrières de code) au lieu d'exiger un format parfait ; et si un premier essai échoue quand même, une tentative de réparation automatique est faite avant d'abandonner. Si l'erreur persiste malgré tout, le modèle choisi est probablement peu fiable pour du JSON structuré — change-le depuis le panneau de configuration.
 
 ## Ce qui vit où
 

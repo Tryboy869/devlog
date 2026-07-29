@@ -9,8 +9,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { extractMediaCandidates, formatMediaCandidatesForPrompt } from '../../js/media.js';
-import { sanitizeGeneratedSvg } from '../../js/svg-sanitize.js';
 import { fitToContextWindow, DEFAULT_CONTEXT_WINDOW } from '../../js/context-budget.js';
+import { fetchModels, generateContent, generateStructuredContent } from '../../js/providers.js';
+import { sanitizeMediaField } from '../../js/svg-patterns.js';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const CATALOG_OWNER = process.env.CATALOG_OWNER;
@@ -22,10 +23,7 @@ const MAX_PER_RUN = Number(process.env.MAX_PER_RUN || 5);
 const INCLUDE_FORKS = process.env.INCLUDE_FORKS === 'true';
 
 const GH_API = 'https://api.github.com';
-const PROVIDERS = {
-  groq: { base: 'https://api.groq.com/openai/v1' },
-  openrouter: { base: 'https://openrouter.ai/api/v1' },
-};
+const KNOWN_PROVIDERS = ['groq', 'openrouter'];
 
 function requireEnv() {
   const missing = [];
@@ -38,7 +36,7 @@ function requireEnv() {
     console.error(`[auto-catalog] variables manquantes : ${missing.join(', ')} — configure les secrets/variables du dépôt (voir README.md).`);
     process.exit(1);
   }
-  if (!PROVIDERS[AI_PROVIDER]) {
+  if (!KNOWN_PROVIDERS.includes(AI_PROVIDER)) {
     console.error(`[auto-catalog] AI_PROVIDER inconnu : "${AI_PROVIDER}" (attendu : groq ou openrouter).`);
     process.exit(1);
   }
@@ -97,66 +95,14 @@ function loadSkillsPrompt() {
   return `${orchestrator}\n\n---\n\n${blogWriting}`;
 }
 
-function parseJsonResponse(text) {
-  const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  return JSON.parse(cleaned);
-}
-
-function sanitizeMediaField(media) {
-  if (!media || typeof media !== 'object' || !media.kind) return { kind: 'none' };
-  if (media.kind === 'generated-svg') {
-    const safeSvg = sanitizeGeneratedSvg(media.svg);
-    return safeSvg ? { kind: 'generated-svg', svg: safeSvg, caption: media.caption || '' } : { kind: 'none' };
-  }
-  if (media.kind === 'image' && media.url) {
-    return { kind: 'image', url: String(media.url), caption: media.caption || '' };
-  }
-  if (media.kind === 'youtube' && media.youtubeId) {
-    return { kind: 'youtube', youtubeId: String(media.youtubeId).replace(/[^\w-]/g, ''), caption: media.caption || '' };
-  }
-  return { kind: 'none' };
-}
-
 async function fetchModelContextWindow() {
-  const provider = PROVIDERS[AI_PROVIDER];
   try {
-    const res = await fetch(`${provider.base}/models`, {
-      headers: { Authorization: `Bearer ${AI_API_KEY}` },
-    });
-    if (!res.ok) return DEFAULT_CONTEXT_WINDOW;
-    const json = await res.json();
-    const list = Array.isArray(json.data) ? json.data : [];
-    const match = list.find((m) => m.id === AI_MODEL);
-    // Le nom du champ diffère selon le fournisseur : context_window chez Groq,
-    // context_length chez OpenRouter.
-    return (match && (match.context_window || match.context_length)) || DEFAULT_CONTEXT_WINDOW;
+    const models = await fetchModels(AI_PROVIDER, AI_API_KEY);
+    const match = models.find((m) => m.id === AI_MODEL);
+    return (match && match.contextWindow) || DEFAULT_CONTEXT_WINDOW;
   } catch {
     return DEFAULT_CONTEXT_WINDOW;
   }
-}
-
-async function generateContent(systemPrompt, userPrompt) {
-  const provider = PROVIDERS[AI_PROVIDER];
-  const res = await fetch(`${provider.base}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.4,
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Erreur ${AI_PROVIDER} (${res.status}) : ${errText.slice(0, 200)}`);
-  }
-  const json = await res.json();
-  const text = json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content;
-  if (!text) throw new Error(`Réponse vide de ${AI_PROVIDER}.`);
-  return text;
 }
 
 async function main() {
@@ -198,7 +144,7 @@ async function main() {
     }
 
     try {
-      const callModelForCondense = (instruction, chunk) => generateContent(instruction, chunk);
+      const callModelForCondense = (instruction, chunk) => generateContent(AI_PROVIDER, AI_API_KEY, AI_MODEL, instruction, chunk);
       const { text: fittedReadme, wasCondensed, passes } = await fitToContextWindow(readme, contextWindow, callModelForCondense);
       if (wasCondensed) {
         console.log(`  … README condensé en ${passes} passe(s) pour tenir dans la fenêtre de contexte.`);
@@ -216,8 +162,10 @@ async function main() {
         'Candidats visuels détectés automatiquement (voir section "Détection de visuel") :',
         formatMediaCandidatesForPrompt(extractMediaCandidates(readme)),
       ].join('\n');
-      const raw = await generateContent(systemPrompt, userPrompt);
-      const parsed = parseJsonResponse(raw);
+      const { data: parsed, repaired } = await generateStructuredContent(AI_PROVIDER, AI_API_KEY, AI_MODEL, systemPrompt, userPrompt);
+      if (repaired) {
+        console.log('  … réponse corrigée automatiquement (JSON initial invalide).');
+      }
       const existing = loadExistingProject(slug);
       const now = new Date().toISOString();
 

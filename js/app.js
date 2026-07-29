@@ -5,11 +5,12 @@
 // d'exécution séparé : il tourne côté build (voir build.js), jamais ici.
 
 import { getFile, putFile, saveToken, getToken, clearToken, detectTokenScope, setActionsSecret, setActionsVariable } from './github.js';
-import { PROVIDERS, fetchModels, generateContent, parseJsonResponse } from './providers.js';
+import { PROVIDERS, fetchModels, generateContent, generateStructuredContent } from './providers.js';
 import { buildBlogWritingPrompt, buildArticleWritingPrompt } from './skills.js';
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.esm.js';
 import { fitToContextWindow, DEFAULT_CONTEXT_WINDOW } from './context-budget.js';
 import { escapeHtml, shortCode, formatDate, renderHeroSection, renderCatalogSection, renderArticlesSection, renderContributeSection } from './render-catalog.js';
+import { renderPatternSvg, sanitizeMediaField } from './svg-patterns.js';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -78,12 +79,21 @@ function renderMediaHtml(media) {
     if (!id) return '';
     return `<figure class="project-media"><div class="project-media-video"><iframe src="https://www.youtube-nocookie.com/embed/${id}" title="${escapeHtml(media.caption || 'Démonstration vidéo')}" loading="lazy" allow="picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>${caption}</figure>`;
   }
-  if (media.kind === 'generated-svg' && media.svg) {
-    const safeSvg = window.DOMPurify
-      ? window.DOMPurify.sanitize(media.svg, { USE_PROFILES: { svg: true, svgFilters: true } })
-      : '';
-    if (!safeSvg) return '';
-    return `<figure class="project-media project-media--svg"><div class="project-media-svg">${safeSvg}</div>${caption}</figure>`;
+  if (media.kind === 'generated-svg') {
+    // Nouveau contrat : le modèle choisit juste un motif + des couleurs, le balisage est
+    // généré par du code déterministe (voir svg-patterns.js) — plus de risque d'échappement
+    // JSON raté. `media.svg` (ancien contrat, balisage écrit par le modèle) reste supporté
+    // pour les entrées déjà générées avant ce changement, sanitisé via DOMPurify comme avant.
+    if (media.pattern) {
+      return `<figure class="project-media project-media--svg"><div class="project-media-svg">${renderPatternSvg(media)}</div>${caption}</figure>`;
+    }
+    if (media.svg) {
+      const safeSvg = window.DOMPurify
+        ? window.DOMPurify.sanitize(media.svg, { USE_PROFILES: { svg: true, svgFilters: true } })
+        : '';
+      if (!safeSvg) return '';
+      return `<figure class="project-media project-media--svg"><div class="project-media-svg">${safeSvg}</div>${caption}</figure>`;
+    }
   }
   return '';
 }
@@ -620,10 +630,12 @@ async function handleGenerateSubmit(e) {
       fittedReadme,
       `https://github.com/${targetOwner}/${targetRepo}`
     );
-    const raw = await generateContent(
+    const { data: parsedContent, repaired } = await generateStructuredContent(
       state.config.provider, state.config.apiKey, state.config.model, systemPrompt, userPrompt
     );
-    const parsedContent = parseJsonResponse(raw);
+    if (repaired) {
+      setMessage('Réponse du modèle corrigée automatiquement (JSON initial invalide)…');
+    }
 
     const slug = slugify(targetRepo);
     const now = new Date().toISOString();
@@ -641,7 +653,7 @@ async function handleGenerateSubmit(e) {
       body: parsedContent.body || '',
       tags: Array.isArray(parsedContent.tags) ? parsedContent.tags : [],
       stack: Array.isArray(parsedContent.stack) ? parsedContent.stack : [],
-      media: parsedContent.media && typeof parsedContent.media === 'object' ? parsedContent.media : { kind: 'none' },
+      media: sanitizeMediaField(parsedContent.media),
       repoUrl: `https://github.com/${targetOwner}/${targetRepo}`,
       createdAt,
       updatedAt: now,
@@ -695,10 +707,12 @@ async function handleGenerateArticleSubmit(e) {
     const { systemPrompt, userPrompt } = await buildArticleWritingPrompt(
       title, notes, seriesName ? { name: seriesName, part: seriesPart, total: seriesTotal } : null
     );
-    const raw = await generateContent(
+    const { data: parsedContent, repaired } = await generateStructuredContent(
       state.config.provider, state.config.apiKey, state.config.model, systemPrompt, userPrompt
     );
-    const parsedContent = parseJsonResponse(raw);
+    if (repaired) {
+      setMessage('Réponse du modèle corrigée automatiquement (JSON initial invalide)…');
+    }
 
     const slug = slugify(parsedContent.title || title);
     const now = new Date().toISOString();
@@ -715,7 +729,7 @@ async function handleGenerateArticleSubmit(e) {
       description: parsedContent.description || '',
       body: parsedContent.body || '',
       tags: Array.isArray(parsedContent.tags) ? parsedContent.tags : [],
-      media: parsedContent.media && typeof parsedContent.media === 'object' ? parsedContent.media : { kind: 'none' },
+      media: sanitizeMediaField(parsedContent.media),
       series: seriesName || null,
       seriesPart: seriesPart ? Number(seriesPart) : null,
       seriesTotal: seriesTotal ? Number(seriesTotal) : null,

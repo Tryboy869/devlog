@@ -10,6 +10,7 @@ import path from 'node:path';
 import { marked } from 'marked';
 import { sanitizeGeneratedSvg } from './js/svg-sanitize.js';
 import { renderHeroSection, renderCatalogSection, renderArticlesSection, renderContributeSection, escapeHtml } from './js/render-catalog.js';
+import { renderPatternSvg } from './js/svg-patterns.js';
 
 const ROOT = process.cwd();
 const PROJECTS_DIR = path.join(ROOT, 'projects');
@@ -116,6 +117,14 @@ function renderMedia(media) {
           referrerpolicy="strict-origin-when-cross-origin"
           allowfullscreen></iframe>
       </div>
+      ${caption}
+    </figure>`;
+  }
+
+  if (media.kind === 'generated-svg' && media.pattern) {
+    return `
+    <figure class="project-media project-media--svg" aria-hidden="${media.caption ? 'false' : 'true'}">
+      <div class="project-media-svg">${renderPatternSvg(media)}</div>
       ${caption}
     </figure>`;
   }

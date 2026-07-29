@@ -24,18 +24,10 @@ Transformer un README technique en entrée de blog lisible par un humain qui ne 
 Le prompt utilisateur inclut une liste de "candidats visuels" détectés automatiquement dans le README (images, GIFs, vidéos YouTube — les badges de statut type shields.io sont déjà exclus en amont). Remplis le champ `media` selon ce qui est disponible :
 
 - **Au moins un candidat pertinent** (vraie capture d'écran, diagramme, démo — pas un logo isolé) → choisis le meilleur : `{"kind": "image", "url": "...", "caption": "..."}` ou `{"kind": "youtube", "youtubeId": "...", "caption": "..."}`. Le caption décrit ce que ça montre, jamais "capture d'écran du projet" (creux).
-- **Aucun candidat pertinent** → génère un petit SVG animé et abstrait, en rapport avec les tags/la stack (une grille de points qui pulse, des lignes façon circuit imprimé, un dégradé qui respire) : `{"kind": "generated-svg", "svg": "<svg ...>...</svg>", "caption": "..."}`. Contraintes strictes sur ce SVG : fragment autonome commençant par `<svg` et finissant par `</svg>`, `viewBox` défini, **animation via un bloc `<style>` interne avec de vraies `@keyframes` CSS (jamais de balises SMIL `<animate>`/`<animateTransform>`)**, et ce même bloc `<style>` doit inclure une règle `@media (prefers-reduced-motion: reduce)` qui neutralise l'animation (`animation: none`) — sans ça, l'animation ignore le réglage d'accessibilité du système du visiteur. Jamais de JavaScript, jamais de balise `<script>`, jamais d'attribut `on*`, jamais d'URL externe. Reste discret et géométrique — ce n'est pas l'élément principal de la page, juste un signal visuel. Exemple de structure minimale :
-```svg
-<svg viewBox="0 0 200 80" role="img" aria-label="...">
-  <style>
-    .pulse { animation: pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-    @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) { .pulse { animation: none; opacity: .8; } }
-  </style>
-  <circle class="pulse" cx="100" cy="40" r="6"/>
-</svg>
-```
+- **Aucun candidat pertinent** → choisis un motif géométrique abstrait plutôt que d'écrire du balisage toi-même (le rendu SVG est produit par du code, pas par toi — ça évite les erreurs d'échappement) : `{"kind": "generated-svg", "pattern": "pulse-dots|bars|grid", "colors": ["brass","sage","dusty-rose"], "caption": "..."}`. `pattern` doit être exactement une de ces trois valeurs. `colors` : 1 à 3 valeurs parmi exactement `brass`, `sage`, `dusty-rose` (jamais un code couleur, jamais un autre nom). Choisis le motif et les couleurs en cohérence avec les tags/la stack du projet, sans logique stricte à respecter au-delà de ça.
 - Si vraiment rien ne convient (cas rare) → `{"kind": "none"}`.
+
+**Important : le champ `svg` n'existe plus dans ce contrat. N'écris jamais de balisage `<svg>...` toi-même — utilise uniquement `pattern` et `colors`.**
 
 ## Interdits explicites
 
@@ -62,6 +54,6 @@ Réponds uniquement avec cet objet JSON, sans texte autour, sans balises de code
   "body": "",
   "tags": [],
   "stack": [],
-  "media": { "kind": "image|youtube|generated-svg|none", "url": "", "youtubeId": "", "svg": "", "caption": "" }
+  "media": { "kind": "image|youtube|generated-svg|none", "url": "", "youtubeId": "", "pattern": "", "colors": [], "caption": "" }
 }
 ```

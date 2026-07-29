@@ -51,7 +51,7 @@ export async function fetchModels(providerId, apiKey) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export async function generateContent(providerId, apiKey, model, systemPrompt, userPrompt) {
+export async function generateContent(providerId, apiKey, model, systemPrompt, userPrompt, maxTokens = 4096) {
   const provider = requireProvider(providerId);
   const res = await fetch(`${provider.base}/chat/completions`, {
     method: 'POST',
@@ -63,6 +63,7 @@ export async function generateContent(providerId, apiKey, model, systemPrompt, u
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.4,
+      max_tokens: maxTokens,
     }),
   });
   if (!res.ok) {
@@ -70,21 +71,80 @@ export async function generateContent(providerId, apiKey, model, systemPrompt, u
     throw new Error(`Erreur ${provider.label} (${res.status}) : ${errText.slice(0, 200)}`);
   }
   const json = await res.json();
-  const text = json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content;
+  const choice = json.choices && json.choices[0];
+  const text = choice && choice.message && choice.message.content;
   if (!text) throw new Error(`Réponse vide de ${provider.label}.`);
+  if (choice.finish_reason === 'length') {
+    console.warn(`[providers] Réponse ${provider.label} coupée par la limite de tokens (max_tokens=${maxTokens}).`);
+  }
   return text;
 }
 
-// Les modèles respectent rarement à 100% la consigne "que du JSON" — on retire les
-// éventuelles barrières de code Markdown avant de parser.
+// Trouve le premier objet JSON complet dans un texte, en ignorant tout ce qui l'entoure
+// (prose avant/après, barrières de code Markdown) et en respectant les limites de chaînes
+// pour qu'une accolade présente DANS une valeur de chaîne (ex. un exemple de code JS dans
+// le champ "body") ne fausse pas le comptage.
+function extractJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null; // accolade non refermée — réponse tronquée
+}
+
+// Les modèles respectent rarement à 100% la consigne "que du JSON" — un peu de prose
+// avant/après, ou des barrières de code Markdown, sont fréquents. On extrait l'objet JSON
+// où qu'il soit dans la réponse plutôt que d'exiger un format parfait dès la première ligne.
 export function parseJsonResponse(text) {
-  const cleaned = text.trim()
-    .replace(/^```(?:json)?/i, '')
-    .replace(/```$/, '')
-    .trim();
+  const candidate = extractJsonObject(text)
+    || text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
   try {
-    return JSON.parse(cleaned);
+    return JSON.parse(candidate);
   } catch {
     throw new Error("Le modèle n'a pas renvoyé un JSON exploitable. Réessaie, ou change de modèle.");
+  }
+}
+
+const REPAIR_SYSTEM_PROMPT = 'Tu répares du JSON invalide. Réponds uniquement avec le JSON corrigé, sans aucun texte autour, sans balises de code Markdown.';
+
+/**
+ * Génère du contenu et le parse en JSON, avec une tentative de réparation automatique si
+ * le premier essai échoue (renvoie la réponse invalide au même modèle en lui demandant de
+ * la corriger). Une seule tentative de réparation : au-delà, l'erreur d'origine est
+ * remontée telle quelle plutôt que de multiplier les appels sur un modèle qui ne coopère pas.
+ */
+export async function generateStructuredContent(providerId, apiKey, model, systemPrompt, userPrompt) {
+  const raw = await generateContent(providerId, apiKey, model, systemPrompt, userPrompt);
+  try {
+    return { data: parseJsonResponse(raw), repaired: false };
+  } catch (firstError) {
+    const repairPrompt = `Le texte suivant devait être un unique objet JSON valide mais ne l'est pas (peut-être coupé, ou avec du texte autour). Corrige-le et réponds uniquement avec le JSON corrigé :\n\n${raw}`;
+    let repairedRaw;
+    try {
+      repairedRaw = await generateContent(providerId, apiKey, model, REPAIR_SYSTEM_PROMPT, repairPrompt);
+    } catch {
+      throw firstError;
+    }
+    try {
+      return { data: parseJsonResponse(repairedRaw), repaired: true };
+    } catch {
+      throw firstError; // le message d'erreur d'origine reste le plus utile pour l'utilisateur
+    }
   }
 }
