@@ -51,24 +51,40 @@ export async function fetchModels(providerId, apiKey) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export async function generateContent(providerId, apiKey, model, systemPrompt, userPrompt, maxTokens = 4096) {
+export async function generateContent(providerId, apiKey, model, systemPrompt, userPrompt, options = {}) {
+  const { maxTokens = 4096, jsonMode = false } = options;
   const provider = requireProvider(providerId);
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.4,
+    max_tokens: maxTokens,
+  };
+  if (jsonMode) {
+    // Contrainte native côté fournisseur plutôt qu'un simple espoir que le modèle produise
+    // du texte propre : garantit une syntaxe JSON valide (pas forcément le bon schéma, mais
+    // au moins un JSON.parse() qui ne plante pas). Supporté par Groq et par OpenRouter (avec
+    // require_parameters pour ne router que vers des fournisseurs sous-jacents compatibles).
+    body.response_format = { type: 'json_object' };
+    if (providerId === 'openrouter') {
+      body.provider = { require_parameters: true };
+    }
+  }
+
   const res = await fetch(`${provider.base}/chat/completions`, {
     method: 'POST',
     headers: headersFor(providerId, apiKey),
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: maxTokens,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(`Erreur ${provider.label} (${res.status}) : ${errText.slice(0, 200)}`);
+    const err = new Error(`Erreur ${provider.label} (${res.status}) : ${errText.slice(0, 200)}`);
+    err.status = res.status;
+    err.jsonModeRequested = jsonMode;
+    throw err;
   }
   const json = await res.json();
   const choice = json.choices && json.choices[0];
@@ -129,15 +145,31 @@ const REPAIR_SYSTEM_PROMPT = 'Tu répares du JSON invalide. Réponds uniquement 
  * la corriger). Une seule tentative de réparation : au-delà, l'erreur d'origine est
  * remontée telle quelle plutôt que de multiplier les appels sur un modèle qui ne coopère pas.
  */
+/**
+ * Génère du contenu structuré. Trois lignes de défense, dans l'ordre :
+ * 1. Mode JSON natif côté fournisseur (response_format) — contraint la génération elle-même,
+ *    pas juste un espoir que le modèle produise du texte propre. Si le fournisseur/modèle
+ *    rejette ce paramètre (certains ne le supportent pas), repli automatique sans lui.
+ * 2. Extraction JSON tolérante (voir extractJsonObject) — au cas où le mode JSON natif ne
+ *    garantit que la syntaxe, pas la présence de tous les champs attendus, ou n'était pas
+ *    disponible pour ce modèle.
+ * 3. Une tentative de réparation automatique si l'extraction échoue quand même.
+ */
 export async function generateStructuredContent(providerId, apiKey, model, systemPrompt, userPrompt) {
-  const raw = await generateContent(providerId, apiKey, model, systemPrompt, userPrompt);
+  let raw;
+  try {
+    raw = await generateContent(providerId, apiKey, model, systemPrompt, userPrompt, { jsonMode: true });
+  } catch (jsonModeError) {
+    console.warn(`[providers] Mode JSON natif refusé (${jsonModeError.message}) — repli sans response_format.`);
+    raw = await generateContent(providerId, apiKey, model, systemPrompt, userPrompt, { jsonMode: false });
+  }
   try {
     return { data: parseJsonResponse(raw), repaired: false };
   } catch (firstError) {
     const repairPrompt = `Le texte suivant devait être un unique objet JSON valide mais ne l'est pas (peut-être coupé, ou avec du texte autour). Corrige-le et réponds uniquement avec le JSON corrigé :\n\n${raw}`;
     let repairedRaw;
     try {
-      repairedRaw = await generateContent(providerId, apiKey, model, REPAIR_SYSTEM_PROMPT, repairPrompt);
+      repairedRaw = await generateContent(providerId, apiKey, model, REPAIR_SYSTEM_PROMPT, repairPrompt, { jsonMode: true });
     } catch {
       throw firstError;
     }
