@@ -1,0 +1,31 @@
+{
+  "slug": "context-manager-agentic",
+  "title": "Context Manager Agentic",
+  "hook": "Distribue des contextes (mémoire + compétences) à un ensemble de nœuds multi-agents, avec vérification de confiance avant injection. La responsabilité unique est la distribution, sans décomposition de tâches ou formation d'équipe.",
+  "description": "Outil de distribution de contextes pour nœuds multi-agents",
+  "body": "\n# Introduction\nLe Context Manager Agentic est un outil conçu pour distribuer des contextes (mémoire + compétences) à un ensemble de nœuds multi-agents. Il vérifie la confiance avant l'injection et se concentre uniquement sur la distribution, sans effectuer de décomposition de tâches ou de formation d'équipe.\n\n## Fonctionnement\nLe projet utilise un système de fichiers avec des métadonnées YAML pour stocker les entrées de mémoire et les compétences. Chaque entrée contient des informations telles que l'ID, la description, le type, le domaine, le niveau de confiance, la mutabilité et l'horodatage de la dernière vérification.\n\n```js\nconst { distribute } = require('./app.js');\n\nconst bundles = distribute([\n  { node_id: 'n1', role: 'researcher', assigned_task: 'security audit', team_id: 'team_a' },\n  { node_id: 'n2', role: 'coder', assigned_task: 'analysis script', team_id: 'team_a' },\n]);\n```\n\n## Ajout d'une entrée de mémoire ou d'une compétence\nPour ajouter une nouvelle entrée, créez un fichier `.md` dans les dossiers `Memory/` ou `Skills/` avec les métadonnées YAML requises, puis exécutez `node revalidate.js` pour recalculer et écrire l'empreinte numérique (`content_hash`) de l'entrée.\n\n## Scénarios vérifiés\nLe projet prend en charge trois scénarios principaux :\n1. **Distribution normale** : les entrées avec un niveau de confiance élevé (`trust_tier=0`) et une empreinte numérique valide sont chargées automatiquement.\n2. **Tentative de falsification** : si une entrée de confiance est modifiée pour injecter des instructions malveillantes, l'empreinte numérique ne correspond plus, et l'entrée est marquée comme non fiable et exclue des bundles.\n3. **Édition légitime** : après une modification intentionnelle, `revalidate.js` recalcule l'empreinte numérique, et l'entrée devient à nouveau chargeable.\n\n## Interface locale\nLe projet propose une interface en ligne de commande (`cli.js`) qui expose les mêmes fonctions que le code principal, sans serveur ni réseau. Cette interface peut être utilisée pour interagir avec le système de distribution de contexte.\n\n```bash\nnode cli.js --manifest\nnode cli.js call context.scan '{\"query\": \"security audit\"}'\nnode cli.js call context.distribute '{\"nodes\": [...]}'\nnode cli.js call context.audit\n```\n\n## Limitations\nLa version actuelle (v0.3) présente certaines limitations, notamment :\n- La recherche de pertinence (`scan`) repose sur la correspondance de mots clés et non sur une recherche sémantique.\n- La protection contre la modification silencieuse d'un fichier est assurée par l'empreinte numérique, mais pas contre une identification malveillante au moment de la création.\n\n",
+  "tags": [
+    "context manager",
+    "multi-agent",
+    "trust verification",
+    "distribution"
+  ],
+  "stack": [
+    "Node.js",
+    "npm",
+    "JavaScript",
+    "YAML"
+  ],
+  "media": {
+    "kind": "generated-svg",
+    "pattern": "pulse-dots",
+    "colors": [
+      "brass",
+      "sage"
+    ],
+    "caption": "Représentation abstraite du Context Manager Agentic"
+  },
+  "repoUrl": "https://github.com/Tryboy869/context-manager-agentic",
+  "createdAt": "2026-07-31T22:09:28.929Z",
+  "updatedAt": "2026-07-31T22:09:28.929Z"
+}
