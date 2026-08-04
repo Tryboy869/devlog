@@ -305,8 +305,10 @@ function buildCatalogJson(projects, articles) {
 }
 
 function buildSitemap(projects, articles) {
+  const allDates = [...projects, ...articles].map((e) => e.updatedAt).filter(Boolean).sort();
+  const homeLastmod = allDates.length ? allDates[allDates.length - 1].slice(0, 10) : '';
   const urls = [
-    `  <url>\n    <loc>${SITE_URL}/</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>`,
+    `  <url>\n    <loc>${SITE_URL}/</loc>${homeLastmod ? `\n    <lastmod>${escapeHtml(homeLastmod)}</lastmod>` : ''}\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>`,
     ...projects.map((p) => `  <url>\n    <loc>${SITE_URL}/p/${p.slug}.html</loc>\n    <lastmod>${escapeHtml((p.updatedAt || '').slice(0, 10))}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`),
     ...articles.map((a) => `  <url>\n    <loc>${SITE_URL}/a/${a.slug}.html</loc>\n    <lastmod>${escapeHtml((a.updatedAt || '').slice(0, 10))}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`),
   ];
@@ -402,6 +404,9 @@ function main() {
   const projects = loadProjects();
   const articles = loadArticles();
 
+  console.log(`[build] SITE_URL résolu : ${SITE_URL}${AUTO_SITE_URL ? ' (auto-détecté)' : process.env.SITE_URL ? ' (forcé manuellement)' : ' (repli par défaut — probablement un bug de configuration)'}`);
+  console.log(`[build] SITE_REPO résolu : ${SITE_REPO || '(vide)'}`);
+
   // OUT_DIR est entièrement généré à chaque build : on le repart de zéro pour ne
   // jamais laisser traîner une page dont le projet source aurait été supprimé.
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
@@ -416,21 +421,50 @@ function main() {
     if (fs.existsSync(src)) fs.cpSync(src, path.join(OUT_DIR, dir), { recursive: true });
   }
 
+  // Une entrée qui fait planter son propre rendu (champ inattendu, contenu corrompu) ne
+  // doit jamais faire échouer TOUT le build : Vercel garderait alors le déploiement
+  // précédent indéfiniment, en servant un site de plus en plus périmé sans que personne
+  // ne s'en aperçoive puisque le site "a l'air de marcher". On isole donc chaque rendu,
+  // on saute l'entrée fautive avec un message clair dans les logs, et on continue.
+  const okProjects = [];
   for (const project of projects) {
-    fs.writeFileSync(path.join(PAGES_DIR, `${project.slug}.html`), renderProjectPage(project), 'utf8');
+    try {
+      fs.writeFileSync(path.join(PAGES_DIR, `${project.slug}.html`), renderProjectPage(project), 'utf8');
+      okProjects.push(project);
+    } catch (e) {
+      console.error(`[build] ✗ projects/${project.slug}.json ignoré (échec de rendu) : ${e.message}`);
+    }
   }
+  const okArticles = [];
   for (const article of articles) {
-    fs.writeFileSync(path.join(ARTICLE_PAGES_DIR, `${article.slug}.html`), renderArticlePage(article), 'utf8');
+    try {
+      fs.writeFileSync(path.join(ARTICLE_PAGES_DIR, `${article.slug}.html`), renderArticlePage(article), 'utf8');
+      okArticles.push(article);
+    } catch (e) {
+      console.error(`[build] ✗ articles/${article.slug}.json ignoré (échec de rendu) : ${e.message}`);
+    }
   }
 
-  const catalog = buildCatalogJson(projects, articles);
+  const catalog = buildCatalogJson(okProjects, okArticles);
   fs.writeFileSync(path.join(OUT_DIR, 'catalog.json'), JSON.stringify(catalog, null, 2), 'utf8');
-  fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), buildSitemap(projects, articles), 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), buildSitemap(okProjects, okArticles), 'utf8');
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), buildRobots(), 'utf8');
-  fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), buildLlmsTxt(projects, articles), 'utf8');
+  fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), buildLlmsTxt(okProjects, okArticles), 'utf8');
   buildIndexHtml(catalog.projects, catalog.articles, catalog.siteRepo);
 
-  console.log(`[build] ${projects.length} projet(s), ${articles.length} article(s) — index.html, pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
+  // Garde-fou de cohérence : si des fichiers source existent dans projects/articles mais
+  // qu'aucune page n'a pu être générée, quelque chose de plus grave se passe (dossier
+  // vidé par erreur, régression dans le rendu) — signalé bien visiblement dans les logs
+  // de build Vercel plutôt que de se découvrir seulement via Search Console des semaines
+  // plus tard.
+  if (projects.length > 0 && okProjects.length === 0) {
+    console.error('[build] ATTENTION : aucun projet n\'a pu être rendu alors que des fichiers existent dans projects/ — le sitemap sera quasi vide.');
+  }
+  if (articles.length > 0 && okArticles.length === 0) {
+    console.error('[build] ATTENTION : aucun article n\'a pu être rendu alors que des fichiers existent dans articles/.');
+  }
+
+  console.log(`[build] ${okProjects.length}/${projects.length} projet(s), ${okArticles.length}/${articles.length} article(s) — index.html, pages, catalog.json, sitemap.xml, robots.txt, llms.txt régénérés.`);
 }
 
 main();
